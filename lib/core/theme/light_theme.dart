@@ -51,7 +51,7 @@ ThemeData lightTheme = ThemeData(
   ),
 
   bottomNavigationBarTheme: BottomNavigationBarThemeData(
-    backgroundColor: LightColors.backgroundColor,
+    backgroundColor: const Color(0xFFB5B3B3),
     type: BottomNavigationBarType.fixed,
     selectedItemColor: LightColors.primaryColor,
     unselectedItemColor: LightColors.textColor,
