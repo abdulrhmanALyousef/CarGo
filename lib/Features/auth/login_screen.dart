@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import 'package:cargo/core/widgets/custom_text_formField.dart';
 import 'package:cargo/Features/auth/controllers/login_controller.dart';
 import 'package:cargo/core/theme/light_color.dart';
+import 'package:cargo/Features/auth/siginup_screen.dart';
 
 class LoginScreen extends StatelessWidget {
   const LoginScreen({super.key});
@@ -225,9 +226,13 @@ class LoginScreen extends StatelessWidget {
                               ),
                             ),
                             GestureDetector(
-                              onTap: () {},
+                              onTap: () => Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                    builder: (_) => const SignUpScreen()),
+                              ),
                               child: Text(
-                                'Sign In',
+                                'Sign Up',
                                 style: TextStyle(
                                   color: LightColors.primaryColor,
                                   fontSize: 14,

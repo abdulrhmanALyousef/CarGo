@@ -18,6 +18,8 @@ class FirebaseService {
     required String email,
     required String password,
     required String fullName,
+    String? phone,
+    String? nationalId,
   }) async {
     try {
       final UserCredential userCredential = await _auth.createUserWithEmailAndPassword(
@@ -28,8 +30,17 @@ class FirebaseService {
       final User? user = userCredential.user;
 
       if (user != null) {
-        // Update user profile with full name
         await user.updateDisplayName(fullName);
+
+        // Save user data to Firestore
+        await _firestore.collection('users').doc(user.uid).set({
+          'uid': user.uid,
+          'fullName': fullName,
+          'email': email,
+          'phone': phone ?? '',
+          'nationalId': nationalId ?? '',
+          'createdAt': FieldValue.serverTimestamp(),
+        });
 
         return user;
       }
