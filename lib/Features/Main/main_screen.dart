@@ -6,6 +6,7 @@ import 'package:cargo/Features/profile/presentation/profile_screen.dart';
 import 'package:cargo/Features/chats/presentation/chats_screen.dart';
 import 'package:cargo/core/theme/light_color.dart';
 
+
 void main() => runApp(const MyApp());
 
 class MyApp extends StatelessWidget {
