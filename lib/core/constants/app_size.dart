@@ -47,6 +47,9 @@ class AppSizes {
   static final double w42 = 42.w;
   static final double w45 = 45.w;
   static final double w48 = 48.w;
+  static final double w80 = 80.w;
+  static final double w65 = 65.w;
+
   static final double w200 = 200.w;
   static final double w240 = 240.w;
 
@@ -88,4 +91,8 @@ class AppSizes {
   /// Full Screen Dimensions
   static final double screenWidth = 1.sw;
   static final double screenHeight = 1.sh;
+
+  /// Splash Image Dimensions
+  static final double splashImageWidth = 200.w;
+  static final double splashImageHeight = 150.h;
 }

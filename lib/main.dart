@@ -1,5 +1,6 @@
 import 'package:cargo/Features/home/home_screen.dart';
 import 'package:cargo/Features/home/controllers/home_controller.dart';
+import 'package:cargo/core/dataSource/local_data/preferences_manager.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:provider/provider.dart';
@@ -10,7 +11,7 @@ void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
   await ScreenUtil.ensureScreenSize();
-
+  await PreferencesManager().init();
 
   runApp(const MyApp());
 }
@@ -32,7 +33,7 @@ class MyApp extends StatelessWidget {
             title: 'Tasky App',
             debugShowCheckedModeBanner: false,
             theme: lightTheme,
-            home: const HomeScreen(),
+            home: const SplashScreen(),
           ),
         );
       },
