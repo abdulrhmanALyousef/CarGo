@@ -21,12 +21,12 @@ class _SplashScreenState extends State<SplashScreen> {
   void _navigateAfterSplash() async {
     await Future.delayed(const Duration(seconds: 2));
 
-    final bool isLoggedIn = true;
+    final bool isLoggedIn = PreferencesManager().getBool('isloggedin') ?? false;
 
-    if (!mounted){
+    if (!mounted) {
       return;
-
     }
+
     if (!isLoggedIn) {
       Navigator.pushReplacement(
         context,
