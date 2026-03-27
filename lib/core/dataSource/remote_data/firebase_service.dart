@@ -63,16 +63,8 @@ class FirebaseService {
         password: password,
       );
 
-      final User? user = userCredential.user;
-
-      if (user != null) {
-        // Update last login time
-        await _firestore.collection('users').doc(user.uid).update({
-          'lastLogin': DateTime.now(),
-        });
-      }
-
-      return user;
+      // Login should rely on Firebase Auth only; no Firestore writes here.
+      return userCredential.user;
     } on FirebaseAuthException catch (e) {
       print('Login Error: ${e.message}');
       rethrow;
