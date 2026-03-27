@@ -9,6 +9,7 @@ class CustomTextFormField extends StatefulWidget {
     this.validator,
     this.maxLines = 1,
     this.suffix,
+    this.suffixIcon,
     this.obscureText = false,
     this.keyboardType,
   });
@@ -19,6 +20,7 @@ class CustomTextFormField extends StatefulWidget {
   final String? Function(String?)? validator;
   final int? maxLines;
   final Widget? suffix;
+  final Widget? suffixIcon;
   final bool obscureText;
   final TextInputType? keyboardType;
 
@@ -31,17 +33,18 @@ class _CustomTextFormFieldState extends State<CustomTextFormField> {
 
   @override
   Widget build(BuildContext context) {
-    final suffixIcon = widget.obscureText
-        ? IconButton(
-      onPressed: () => setState(() => _isVisible = !_isVisible),
-      icon: Icon(
-        _isVisible
-            ? Icons.visibility_outlined
-            : Icons.visibility_off_outlined,
-        color: const Color(0xFFAAAAAA),
-      ),
-    )
-        : widget.suffix;
+    final suffixIcon = widget.suffixIcon ??
+        (widget.obscureText
+            ? IconButton(
+                onPressed: () => setState(() => _isVisible = !_isVisible),
+                icon: Icon(
+                  _isVisible
+                      ? Icons.visibility_outlined
+                      : Icons.visibility_off_outlined,
+                  color: const Color(0xFFAAAAAA),
+                ),
+              )
+            : widget.suffix);
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,

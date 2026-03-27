@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:cargo/core/widgets/location_sheet.dart';
+import 'package:cargo/core/theme/light_color.dart';
 
 class HomeController extends ChangeNotifier {
   String _location = '';
@@ -33,5 +35,40 @@ class HomeController extends ChangeNotifier {
     }
     // TODO: navigate to results screen
   }
-}
 
+  Future<void> openLocation(BuildContext context) async {
+    final result = await showModalBottomSheet<String>(
+      context: context,
+      backgroundColor: const Color(0xFFD4D4D4),
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (_) => const LocationSheet(),
+    );
+    if (result != null) {
+      setLocation(result);
+    }
+  }
+
+  Future<void> openDate(BuildContext context) async {
+    final result = await showDateRangePicker(
+      context: context,
+      firstDate: DateTime.now(),
+      lastDate: DateTime.now().add(const Duration(days: 365)),
+      initialDateRange: _dateRange,
+      builder: (ctx, child) => Theme(
+        data: Theme.of(ctx).copyWith(
+          colorScheme: const ColorScheme.light(
+            primary: LightColors.primaryColor,
+            onPrimary: Colors.white,
+            surface: const Color(0xFFD4D4D4),
+          ),
+        ),
+        child: child!,
+      ),
+    );
+    if (result != null) {
+      setDateRange(result);
+    }
+  }
+}

@@ -31,15 +31,6 @@ class FirebaseService {
         // Update user profile with full name
         await user.updateDisplayName(fullName);
 
-        // Save user data to Firestore
-        await _firestore.collection('users').doc(user.uid).set({
-          'uid': user.uid,
-          'email': email,
-          'fullName': fullName,
-          'createdAt': DateTime.now(),
-          'updatedAt': DateTime.now(),
-        });
-
         return user;
       }
       return null;
@@ -121,5 +112,36 @@ class FirebaseService {
       print('Get User Data Error: $e');
       rethrow;
     }
+  }
+
+  /// Send phone verification code
+  Future<void> sendPhoneVerification({
+    required String phoneNumber,
+    required PhoneVerificationCompleted onCompleted,
+    required PhoneVerificationFailed onFailed,
+    required PhoneCodeSent onCodeSent,
+    required PhoneCodeAutoRetrievalTimeout onTimeout,
+    Duration timeout = const Duration(seconds: 60),
+  }) async {
+    await _auth.verifyPhoneNumber(
+      phoneNumber: phoneNumber,
+      timeout: timeout,
+      verificationCompleted: onCompleted,
+      verificationFailed: onFailed,
+      codeSent: onCodeSent,
+      codeAutoRetrievalTimeout: onTimeout,
+    );
+  }
+
+  /// Sign in with the SMS verification code
+  Future<UserCredential> signInWithSmsCode({
+    required String verificationId,
+    required String smsCode,
+  }) async {
+    final credential = PhoneAuthProvider.credential(
+      verificationId: verificationId,
+      smsCode: smsCode,
+    );
+    return _auth.signInWithCredential(credential);
   }
 }
