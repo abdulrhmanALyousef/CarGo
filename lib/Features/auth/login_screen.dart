@@ -1,169 +1,252 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import 'package:cargo/core/widgets/custom_text_formField.dart';
-import 'package:cargo/core/dataSource/remote_data/firebase_service.dart';
-import 'package:cargo/core/dataSource/local_data/preferences_manager.dart';
-import 'package:cargo/Features/Main/main_screen.dart';
+import 'package:cargo/Features/auth/controllers/login_controller.dart';
 import 'package:cargo/core/theme/light_color.dart';
 
-class LoginScreen extends StatefulWidget {
+class LoginScreen extends StatelessWidget {
   const LoginScreen({super.key});
 
   @override
-  State<LoginScreen> createState() => _LoginScreenState();
-}
+  Widget build(BuildContext context) {
+    return ChangeNotifierProvider(
+      create: (_) => LoginController(),
+      child: Builder(
+        builder: (context) {
+          final ctrl = context.watch<LoginController>();
+          final formKey = GlobalKey<FormState>();
 
-class _LoginScreenState extends State<LoginScreen> {
-  late TextEditingController _emailController;
-  late TextEditingController _passwordController;
-  final _formKey = GlobalKey<FormState>();
-  bool _isLoading = false;
-
-  @override
-  void initState() {
-    super.initState();
-    _emailController = TextEditingController();
-    _passwordController = TextEditingController();
-  }
-
-  @override
-  void dispose() {
-    _emailController.dispose();
-    _passwordController.dispose();
-    super.dispose();
-  }
-
-  String? _validateEmail(String? value) {
-    if (value == null || value.isEmpty) {
-      return 'Please enter your email';
-    }
-    if (!RegExp(r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$').hasMatch(value)) {
-      return 'Please enter a valid email';
-    }
-    return null;
-  }
-
-  String? _validatePassword(String? value) {
-    if (value == null || value.isEmpty) {
-      return 'Please enter your password';
-    }
-    if (value.length < 6) {
-      return 'Password must be at least 6 characters';
-    }
-    return null;
-  }
-
-  void _handleLogin() async {
-    if (!_formKey.currentState!.validate()) {
-      return;
-    }
-
-    setState(() => _isLoading = true);
-
-    try {
-      final user = await FirebaseService().login(
-        email: _emailController.text.trim(),
-        password: _passwordController.text.trim(),
-      );
-
-      if (user != null) {
-        // Save login status to preferences
-        await PreferencesManager().setBool('isLoggedIn', true);
-
-        if (mounted) {
-          Navigator.pushReplacement(
-            context,
-            MaterialPageRoute(
-              builder: (BuildContext context) {
-                return const MainScreen();
-              },
+          return Scaffold(
+            backgroundColor: LightColors.backgroundColor,
+            appBar: AppBar(
+              backgroundColor: LightColors.backgroundColor,
+              elevation: 0,
+              leading: Padding(
+                padding: const EdgeInsets.all(8.0),
+                child: Container(
+                  decoration: const BoxDecoration(
+                    color: Color(0xFF9E9E9E),
+                    shape: BoxShape.circle,
+                  ),
+                  child: IconButton(
+                    icon: Icon(Icons.arrow_back, color: LightColors.textColor),
+                    onPressed: () => Navigator.pop(context),
+                  ),
+                ),
+              ),
+              title: Text(
+                'Login',
+                style: TextStyle(
+                  color: LightColors.textColor,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+              centerTitle: true,
+            ),
+            body: SingleChildScrollView(
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 20),
+                child: Form(
+                  key: formKey,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      // عنوان Welcome Back!
+                      Text(
+                        'Welcome Back!',
+                        style: TextStyle(
+                          fontSize: 28,
+                          fontWeight: FontWeight.bold,
+                          color: LightColors.textColor,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      // نص فرعي
+                      Text(
+                        'Enter your registered account to sign in',
+                        style: TextStyle(
+                          fontSize: 14,
+                          color: LightColors.textColor.withOpacity(0.54),
+                        ),
+                      ),
+                      const SizedBox(height: 30),
+                      // تبديل Email / Phone Number
+                      Container(
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFBDBDBD),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: Row(
+                          children: [
+                            Expanded(
+                              child: GestureDetector(
+                                onTap: () => ctrl.switchMethod(LoginMethod.email),
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(vertical: 12),
+                                  decoration: BoxDecoration(
+                                    color: ctrl.isEmail ? LightColors.primaryColor.withOpacity(0.18) : const Color(0xFFBDBDBD),
+                                    borderRadius: BorderRadius.circular(12),
+                                  ),
+                                  child: Center(
+                                    child: Text(
+                                      'Email',
+                                      style: TextStyle(
+                                        color: LightColors.textColor,
+                                        fontWeight: FontWeight.w500,
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ),
+                            Expanded(
+                              child: GestureDetector(
+                                onTap: () => ctrl.switchMethod(LoginMethod.phone),
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(vertical: 12),
+                                  decoration: BoxDecoration(
+                                    color: ctrl.isPhone ? LightColors.primaryColor.withOpacity(0.18) : const Color(0xFFBDBDBD),
+                                    borderRadius: BorderRadius.circular(12),
+                                  ),
+                                  child: Center(
+                                    child: Text(
+                                      'Phone Number',
+                                      style: TextStyle(
+                                        color: LightColors.textColor,
+                                        fontWeight: FontWeight.w500,
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 25),
+                      // حقل Email أو Phone Number بناءً على الاختيار
+                      if (ctrl.isEmail) ...[
+                        CustomTextFormField(
+                          controller: ctrl.emailController,
+                          title: 'Email',
+                          hintText: 'Enter your email address..',
+                          validator: ctrl.validateEmail,
+                          keyboardType: TextInputType.emailAddress,
+                        ),
+                        const SizedBox(height: 20),
+                        CustomTextFormField(
+                          controller: ctrl.passwordController,
+                          title: 'Password',
+                          hintText: 'Enter your password..',
+                          validator: ctrl.validatePassword,
+                          obscureText: true,
+                        ),
+                        const SizedBox(height: 15),
+                        // Forgot password
+                        Align(
+                          alignment: Alignment.centerRight,
+                          child: TextButton(
+                            onPressed: () {},
+                            child: Text(
+                              'Forgot password?',
+                              style: TextStyle(
+                                color: LightColors.primaryColor,
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
+                      if (ctrl.isPhone) ...[
+                        CustomTextFormField(
+                          controller: ctrl.phoneController,
+                          title: 'Phone Number',
+                          hintText: 'Enter your phone number..',
+                          validator: ctrl.validatePhone,
+                          keyboardType: TextInputType.phone,
+                        ),
+                        const SizedBox(height: 20),
+                        // حقل OTP عند إرسال الرمز
+                        if (ctrl.codeSent)
+                          CustomTextFormField(
+                            controller: ctrl.otpController,
+                            title: 'Verification Code',
+                            hintText: 'Enter the code sent to your phone',
+                            validator: ctrl.validateOtp,
+                            keyboardType: TextInputType.number,
+                          ),
+                        if (ctrl.codeSent) const SizedBox(height: 15),
+                      ],
+                      const SizedBox(height: 30),
+                      // زر Login
+                      SizedBox(
+                        width: double.infinity,
+                        height: 55,
+                        child: ElevatedButton(
+                          onPressed: ctrl.isLoading ? null : () => ctrl.handleLogin(context, formKey),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: LightColors.primaryColor,
+                            foregroundColor: Colors.white,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(30),
+                            ),
+                            elevation: 0,
+                          ),
+                          child: ctrl.isLoading
+                              ? const SizedBox(
+                                  height: 20,
+                                  width: 20,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                    color: Colors.white,
+                                  ),
+                                )
+                              : Text(
+                                  ctrl.primaryButtonText,
+                                  style: const TextStyle(
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.w500,
+                                    color: Colors.white,
+                                  ),
+                                ),
+                        ),
+                      ),
+                      const SizedBox(height: 40),
+                      // Sign In في الأسفل
+                      Center(
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Text(
+                              "Don't have an account? ",
+                              style: TextStyle(
+                                color: LightColors.textColor.withOpacity(0.54),
+                                fontSize: 14,
+                              ),
+                            ),
+                            GestureDetector(
+                              onTap: () {},
+                              child: Text(
+                                'Sign In',
+                                style: TextStyle(
+                                  color: LightColors.primaryColor,
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
             ),
           );
-        }
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Login failed: ${e.toString()}'),
-            backgroundColor: Colors.red,
-          ),
-        );
-      }
-    } finally {
-      if (mounted) {
-        setState(() => _isLoading = false);
-      }
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Login'),
-        elevation: 0,
-      ),
-      body: SingleChildScrollView(
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 30),
-          child: Form(
-            key: _formKey,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text(
-                  'Welcome Back',
-                  style: TextStyle(
-                    fontSize: 28,
-                    fontWeight: FontWeight.bold,
-                    color: LightColors.textColor,
-                  ),
-                ),
-                const SizedBox(height: 8),
-                const Text(
-                  'Sign in to your account',
-                  style: TextStyle(
-                    fontSize: 14,
-                    color: Color(0xFF9E9E9E),
-                  ),
-                ),
-                const SizedBox(height: 40),
-                CustomTextFormField(
-                  controller: _emailController,
-                  title: 'Email',
-                  hintText: 'Enter your email',
-                  validator: _validateEmail,
-                  keyboardType: TextInputType.emailAddress,
-                ),
-                const SizedBox(height: 20),
-                CustomTextFormField(
-                  controller: _passwordController,
-                  title: 'Password',
-                  hintText: 'Enter your password',
-                  validator: _validatePassword,
-                  obscureText: true,
-                ),
-                const SizedBox(height: 30),
-                SizedBox(
-                  width: double.infinity,
-                  child: ElevatedButton(
-                    onPressed: _isLoading ? null : _handleLogin,
-                    child: _isLoading
-                        ? const SizedBox(
-                            height: 20,
-                            width: 20,
-                            child: CircularProgressIndicator(
-                              strokeWidth: 2,
-                            ),
-                          )
-                        : const Text('Login'),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
+        },
       ),
     );
   }
 }
+
