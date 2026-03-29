@@ -170,6 +170,19 @@ class FirebaseService {
     }
   }
 
+  /// Fetch all cars from Firestore
+  Future<List<Map<String, dynamic>>> getCars() async {
+    try {
+      final snapshot = await _firestore.collection('cars').get();
+      return snapshot.docs
+          .map((doc) => {'id': doc.id, ...doc.data()})
+          .toList();
+    } catch (e) {
+      print('Get Cars Error: $e');
+      rethrow;
+    }
+  }
+
   /// Send phone verification code
   Future<void> sendPhoneVerification({
     required String phoneNumber,

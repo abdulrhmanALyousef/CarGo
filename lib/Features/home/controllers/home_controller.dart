@@ -1,10 +1,25 @@
 import 'package:flutter/material.dart';
 import 'package:cargo/core/widgets/location_sheet.dart';
 import 'package:cargo/core/theme/light_color.dart';
+import 'package:cargo/core/dataSource/remote_data/firebase_service.dart';
+import 'package:cargo/Features/home/models/car_model.dart';
 
 class HomeController extends ChangeNotifier {
+  HomeController() {
+    fetchCars();
+  }
+
   String _location = '';
   DateTimeRange? _dateRange;
+
+  List<Car> _cars = [];
+  List<Car> get cars => _cars;
+
+  bool _isLoadingCars = false;
+  bool get isLoadingCars => _isLoadingCars;
+
+  String? _carsError;
+  String? get carsError => _carsError;
 
   String get location => _location;
   DateTimeRange? get dateRange => _dateRange;
@@ -69,6 +84,22 @@ class HomeController extends ChangeNotifier {
     );
     if (result != null) {
       setDateRange(result);
+    }
+  }
+
+  Future<void> fetchCars() async {
+    _isLoadingCars = true;
+    _carsError = null;
+    notifyListeners();
+
+    try {
+      final data = await FirebaseService().getCars();
+      _cars = data.map((json) => Car.fromJson(json)).toList();
+    } catch (e) {
+      _carsError = e.toString();
+    } finally {
+      _isLoadingCars = false;
+      notifyListeners();
     }
   }
 }
