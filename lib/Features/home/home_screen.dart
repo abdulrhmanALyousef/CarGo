@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import 'package:provider/provider.dart';
 import 'package:cargo/core/widgets/search_widget.dart';
 import 'package:cargo/core/theme/light_color.dart';
@@ -47,16 +48,11 @@ class HomeScreen extends StatelessWidget {
                               ),
                             ],
                           ),
-                          CircleAvatar(
-                            radius: 24,
-                            backgroundColor: const Color(0xFFE0E0E0),
-                            child: ClipOval(
-                              child: Image.network(
-                                'https://i.pravatar.cc/100',
-                                fit: BoxFit.cover,
-                                width: 48,
-                                height: 48,
-                              ),
+                          ClipOval(
+                            child: SvgPicture.asset(
+                              'assests/images/manicon.svg',
+                              width: 48,
+                              height: 48,
                             ),
                           ),
                         ],

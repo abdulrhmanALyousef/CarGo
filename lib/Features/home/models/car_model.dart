@@ -1,4 +1,5 @@
 class Car {
+  final String id;
   final bool available;
   final String brand;
   final String model;
@@ -18,6 +19,7 @@ class Car {
   final String? ownerImage;
 
   Car({
+    required this.id,
     required this.available,
     required this.brand,
     required this.model,
@@ -39,6 +41,7 @@ class Car {
 
   factory Car.fromJson(Map<String, dynamic> json) {
     return Car(
+      id: json['id'] as String? ?? '',
       available: json['available'] as bool? ?? false,
       brand: json['brand'] as String? ?? '',
       model: json['model'] as String? ?? '',
@@ -63,6 +66,7 @@ class Car {
 
   Map<String, dynamic> toJson() {
     return {
+      'id': id,
       'available': available,
       'brand': brand,
       'model': model,

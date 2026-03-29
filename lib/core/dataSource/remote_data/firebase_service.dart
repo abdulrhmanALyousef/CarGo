@@ -183,6 +183,22 @@ class FirebaseService {
     }
   }
 
+  /// Fetch reviews for a specific car
+  Future<List<Map<String, dynamic>>> getReviews(String carId) async {
+    try {
+      final snapshot = await _firestore
+          .collection('Reviews')
+          .where('carId', isEqualTo: carId)
+          .get();
+      return snapshot.docs
+          .map((doc) => {'id': doc.id, ...doc.data()})
+          .toList();
+    } catch (e) {
+      print('Get Reviews Error: $e');
+      rethrow;
+    }
+  }
+
   /// Send phone verification code
   Future<void> sendPhoneVerification({
     required String phoneNumber,

@@ -12,10 +12,12 @@ service cloud.firestore {
     }
 
     match /cars/{carId} {
-      // Allow any authenticated user to read cars
       allow read: if true;
+      allow write: if request.auth != null;
+    }
 
-      // Only authenticated users can create/update cars they own
+    match /Reviews/{reviewId} {
+      allow read: if true;
       allow write: if request.auth != null;
     }
 
