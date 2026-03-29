@@ -1,5 +1,7 @@
+import 'dart:io';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_storage/firebase_storage.dart';
 
 class FirebaseService {
   static final FirebaseService _instance = FirebaseService._internal();
@@ -12,6 +14,48 @@ class FirebaseService {
 
   final FirebaseAuth _auth = FirebaseAuth.instance;
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+  final FirebaseStorage _storage = FirebaseStorage.instance;
+
+  /// Upload driving license image to Firebase Storage
+  /// Returns the download URL
+  Future<String> uploadDrivingLicense({
+    required String uid,
+    required File imageFile,
+  }) async {
+    final ref = _storage.ref().child('driving_licenses/$uid/license.jpg');
+    await ref.putFile(imageFile);
+    return await ref.getDownloadURL();
+  }
+
+  /// Update licenseUrl field in existing user document
+  Future<void> updateUserLicenseUrl({
+    required String uid,
+    required String licenseUrl,
+  }) async {
+    await _firestore.collection('users').doc(uid).update({
+      'licenseUrl': licenseUrl,
+    });
+  }
+
+  /// Check if phone number already exists in Firestore
+  Future<bool> isPhoneExists(String phone) async {
+    final query = await _firestore
+        .collection('users')
+        .where('phone', isEqualTo: phone)
+        .limit(1)
+        .get();
+    return query.docs.isNotEmpty;
+  }
+
+  /// Check if national ID already exists in Firestore
+  Future<bool> isNationalIdExists(String nationalId) async {
+    final query = await _firestore
+        .collection('users')
+        .where('nationalId', isEqualTo: nationalId)
+        .limit(1)
+        .get();
+    return query.docs.isNotEmpty;
+  }
 
   /// Sign Up with Email and Password
   Future<User?> signUp({
@@ -20,6 +64,7 @@ class FirebaseService {
     required String fullName,
     String? phone,
     String? nationalId,
+    String? licenseUrl,
   }) async {
     try {
       final UserCredential userCredential = await _auth.createUserWithEmailAndPassword(
@@ -32,13 +77,13 @@ class FirebaseService {
       if (user != null) {
         await user.updateDisplayName(fullName);
 
-        // Save user data to Firestore
         await _firestore.collection('users').doc(user.uid).set({
           'uid': user.uid,
           'fullName': fullName,
           'email': email,
           'phone': phone ?? '',
           'nationalId': nationalId ?? '',
+          'licenseUrl': licenseUrl ?? '',
           'createdAt': FieldValue.serverTimestamp(),
         });
 
