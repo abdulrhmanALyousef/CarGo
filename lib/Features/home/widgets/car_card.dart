@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:shimmer/shimmer.dart';
 import 'package:cargo/Features/home/models/car_model.dart';
 import 'package:cargo/Features/details/car_details_screen.dart';
+import 'package:cargo/core/theme/light_color.dart';
 
 class CarCard extends StatelessWidget {
   const CarCard({super.key, required this.model});
@@ -11,6 +12,7 @@ class CarCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
     return GestureDetector(
       onTap: () {
         Navigator.push(
@@ -23,21 +25,16 @@ class CarCard extends StatelessWidget {
       child: Container(
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(20),
-          border: Border.all(color: Colors.grey.shade200),
+
         ),
         clipBehavior: Clip.hardEdge,
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            _buildImageSection(),
-            _buildBottomSection(context),
-          ],
-        ),
+        child: _buildImageSection(context),
       ),
     );
   }
 
-  Widget _buildImageSection() {
+  Widget _buildImageSection(BuildContext context) {
+    final theme = Theme.of(context);
     return Stack(
       children: [
         AspectRatio(
@@ -46,13 +43,17 @@ class CarCard extends StatelessWidget {
             imageUrl: model.images.isNotEmpty ? model.images.first : '',
             fit: BoxFit.cover,
             placeholder: (context, url) => Shimmer.fromColors(
-              baseColor: Colors.grey.shade300,
-              highlightColor: Colors.grey.shade100,
-              child: Container(color: Colors.white),
+              baseColor: theme.colorScheme.surfaceVariant,
+              highlightColor: theme.colorScheme.surface,
+              child: Container(color: theme.colorScheme.surface),
             ),
             errorWidget: (context, url, error) => Container(
-              color: Colors.grey.shade300,
-              child: const Icon(Icons.directions_car, color: Colors.grey, size: 48),
+              color: theme.colorScheme.surfaceVariant,
+              child: Icon(
+                Icons.directions_car,
+                color: theme.iconTheme.color,
+                size: 48,
+              ),
             ),
           ),
         ),
@@ -65,78 +66,107 @@ class CarCard extends StatelessWidget {
                 TextSpan(
                   text: 'SAR ${model.pricePerDay.toStringAsFixed(0)}',
                   style: const TextStyle(
-                    fontSize: 22,
-                    fontWeight: FontWeight.w700,
-                    color: Colors.white,
-                    shadows: [Shadow(color: Colors.black45, blurRadius: 4)],
+                    fontSize: 24,
+                    fontWeight: FontWeight.w800,
+                    color: LightColors.textColor,
+                    shadows: [
+                      Shadow(
+                        color: Colors.black54,
+                        blurRadius: 6,
+                        offset: Offset(0, 2),
+                      ),
+                    ],
                   ),
                 ),
                 const TextSpan(
                   text: '/day',
                   style: TextStyle(
-                    fontSize: 13,
-                    color: Colors.white70,
-                    fontWeight: FontWeight.w400,
-                    shadows: [Shadow(color: Colors.black45, blurRadius: 4)],
+                    fontSize: 14,
+                    color: Colors.white,
+                    fontWeight: FontWeight.w500,
+                    shadows: [
+                      Shadow(
+                        color: Colors.black54,
+                        blurRadius: 6,
+                        offset: Offset(0, 2),
+                      ),
+                    ],
                   ),
                 ),
               ],
             ),
           ),
         ),
+
         const Positioned(
-          top: 10,
-          right: 12,
+          top: 12,
+          right: 14,
           child: Icon(
-            Icons.favorite_border,
-            size: 22,
+            Icons.favorite_outline,
+            size: 24,
             color: Colors.white,
           ),
         ),
-      ],
-    );
-  }
-
-  Widget _buildBottomSection(BuildContext context) {
-    return Container(
-      color: Colors.white,
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Text(
-            model.brand,
-            style: const TextStyle(
-              fontSize: 16,
-              fontWeight: FontWeight.w500,
-              color: Colors.black87,
+        Positioned(
+          left: 0,
+          right: 0,
+          bottom: 0,
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.bottomCenter,
+                end: Alignment.topCenter,
+                colors: [
+                  Colors.black.withOpacity(0.7),
+                  Colors.black.withOpacity(0.3),
+                  Colors.transparent,
+                ],
+                stops: const [0.0, 0.5, 1.0],
+              ),
             ),
-          ),
-          GestureDetector(
-            onTap: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (context) => CarDetailsScreen(model: model),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Expanded(
+                  child: Text(
+                    model.brand,
+                    style: const TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w600,
+                      color: Colors.white,
+                    ),
+                    overflow: TextOverflow.ellipsis,
+                  ),
                 ),
-              );
-            },
-            child: Container(
-              width: 32,
-              height: 32,
-              decoration: const BoxDecoration(
-                shape: BoxShape.circle,
-                color: Color(0xFF2C2C2A),
-              ),
-              child: const Icon(
-                Icons.arrow_forward,
-                size: 16,
-                color: Colors.white,
-              ),
+                GestureDetector(
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => CarDetailsScreen(model: model),
+                      ),
+                    );
+                  },
+                  child: Container(
+                    width: 32,
+                    height: 32,
+                    decoration: const BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: Color(0xFF2D5016),
+                    ),
+                    child: const Icon(
+                      Icons.arrow_forward,
+                      size: 16,
+                      color: LightColors.textColor,
+                    ),
+                  ),
+                ),
+              ],
             ),
           ),
-        ],
-      ),
+        ),
+      ],
     );
   }
 }
