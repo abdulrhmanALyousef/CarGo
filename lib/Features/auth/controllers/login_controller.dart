@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:cargo/core/dataSource/remote_data/firebase_service.dart';
 import 'package:cargo/core/dataSource/local_data/preferences_manager.dart';
 import 'package:cargo/Features/Main/main_screen.dart';
+import 'package:cargo/Features/auth/otp_screen.dart';
 
 enum LoginMethod { email, phone }
 
@@ -148,10 +149,19 @@ class LoginController extends ChangeNotifier {
         },
         onCodeSent: (verificationId, _) {
           _verificationId = verificationId;
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Verification code sent')),
-          );
+          _isLoading = false;
           notifyListeners();
+          if (context.mounted) {
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (_) => OtpScreen(
+                  phoneNumber: phone,
+                  verificationId: verificationId,
+                ),
+              ),
+            );
+          }
         },
         onTimeout: (verificationId) {
           _verificationId = verificationId;

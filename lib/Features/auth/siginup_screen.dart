@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'dart:io';
 import 'package:cargo/core/widgets/custom_text_formField.dart';
 import 'package:cargo/core/theme/light_color.dart';
 import 'package:cargo/Features/auth/controllers/signup_controller.dart';
@@ -36,10 +37,10 @@ class SignUpScreen extends StatelessWidget {
                 ),
               ),
               title: Text(
-                'Sign Up',
+                'Create an Account',
                 style: TextStyle(
                   color: LightColors.textColor,
-                  fontWeight: FontWeight.w600,
+                  fontWeight: FontWeight.w500,
                 ),
               ),
               centerTitle: true,
@@ -53,7 +54,7 @@ class SignUpScreen extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        'Create Account',
+                        'Create an Account',
                         style: TextStyle(
                           fontSize: 28,
                           fontWeight: FontWeight.bold,
@@ -62,19 +63,20 @@ class SignUpScreen extends StatelessWidget {
                       ),
                       const SizedBox(height: 8),
                       Text(
-                        'Fill your details to continue',
+                        'Join us today and unlock endless possibilities.\nIt\'s quick, easy, and just a step away!',
                         style: TextStyle(
                           fontSize: 14,
                           color: LightColors.textColor.withOpacity(0.54),
+                          height: 1.4,
                         ),
                       ),
-                      const SizedBox(height: 24),
+                      const SizedBox(height: 30),
 
                       // ─── Full Name ─────────────────────────────────────
                       CustomTextFormField(
                         controller: ctrl.fullNameController,
                         title: 'Full Name',
-                        hintText: 'Enter your full name',
+                        hintText: 'Mohammed Bassam',
                         validator: ctrl.validateFullName,
                         keyboardType: TextInputType.name,
                       ),
@@ -84,7 +86,7 @@ class SignUpScreen extends StatelessWidget {
                       CustomTextFormField(
                         controller: ctrl.emailController,
                         title: 'Email',
-                        hintText: 'Enter your email',
+                        hintText: 'Mo@email.com',
                         validator: ctrl.validateEmail,
                         keyboardType: TextInputType.emailAddress,
                       ),
@@ -94,7 +96,7 @@ class SignUpScreen extends StatelessWidget {
                       CustomTextFormField(
                         controller: ctrl.phoneController,
                         title: 'Phone Number',
-                        hintText: 'Enter your phone number',
+                        hintText: '+966 55 555 5555',
                         validator: ctrl.validatePhone,
                         keyboardType: TextInputType.phone,
                       ),
@@ -104,7 +106,7 @@ class SignUpScreen extends StatelessWidget {
                       CustomTextFormField(
                         controller: ctrl.nationalIdController,
                         title: 'National ID Number',
-                        hintText: 'Enter your national ID number',
+                        hintText: '1122334455',
                         validator: ctrl.validateNationalId,
                         keyboardType: TextInputType.number,
                       ),
@@ -114,7 +116,7 @@ class SignUpScreen extends StatelessWidget {
                       CustomTextFormField(
                         controller: ctrl.passwordController,
                         title: 'Password',
-                        hintText: 'Enter your password',
+                        hintText: '************',
                         validator: ctrl.validatePassword,
                         obscureText: true,
                       ),
@@ -124,108 +126,147 @@ class SignUpScreen extends StatelessWidget {
                       CustomTextFormField(
                         controller: ctrl.confirmPasswordController,
                         title: 'Confirm Password',
-                        hintText: 'Re-enter your password',
+                        hintText: '************',
                         validator: ctrl.validateConfirmPassword,
                         obscureText: true,
                       ),
-                      const SizedBox(height: 20),
+                      const SizedBox(height: 25),
 
                       // ─── Driving License Upload ────────────────────────
                       Text(
-                        'Driving License',
+                        'Add your Driving License',
                         style: TextStyle(
                           fontSize: 14,
-                          fontWeight: FontWeight.w600,
+                          fontWeight: FontWeight.w500,
                           color: LightColors.textColor,
                         ),
                       ),
-                      const SizedBox(height: 8),
+                      const SizedBox(height: 12),
                       GestureDetector(
-                        onTap: ctrl.hasDrivingLicense ? null : ctrl.pickDrivingLicense,
+                        onTap: ctrl.pickDrivingLicense,
                         child: Container(
                           width: double.infinity,
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 14, vertical: 14),
+                          height: 130,
                           decoration: BoxDecoration(
-                            color: const Color(0xFFF2F2F2),
-                            borderRadius: BorderRadius.circular(12),
-                            border: Border.all(color: const Color(0xFFDDDDDD)),
+                            color: const Color(0xFFE0E0E0),
+                            borderRadius: BorderRadius.circular(16),
+                            border: Border.all(
+                              color: ctrl.hasDrivingLicense
+                                  ? LightColors.primaryColor
+                                  : const Color(0xFFBDBDBD),
+                              width: ctrl.hasDrivingLicense ? 2 : 1,
+                            ),
                           ),
-                          child: Row(
-                            children: [
-                              Icon(
-                                ctrl.hasDrivingLicense
-                                    ? Icons.check_circle_outline
-                                    : Icons.add_circle_outline,
-                                color: ctrl.hasDrivingLicense
-                                    ? LightColors.primaryColor
-                                    : LightColors.textColor.withOpacity(0.54),
-                              ),
-                              const SizedBox(width: 10),
-                              Expanded(
-                                child: Text(
-                                  ctrl.hasDrivingLicense
-                                      ? ctrl.drivingLicenseFileName!
-                                      : 'Upload driving license',
-                                  style: TextStyle(
-                                    color: ctrl.hasDrivingLicense
-                                        ? LightColors.textColor
-                                        : LightColors.textColor.withOpacity(0.54),
-                                    fontSize: 14,
-                                  ),
+                          child: ctrl.hasDrivingLicense
+                              ? Stack(
+                                  children: [
+                                    ClipRRect(
+                                      borderRadius: BorderRadius.circular(14),
+                                      child: Image.file(
+                                        ctrl.licenseFile!,
+                                        width: double.infinity,
+                                        height: double.infinity,
+                                        fit: BoxFit.cover,
+                                      ),
+                                    ),
+                                    Positioned(
+                                      top: 6,
+                                      right: 6,
+                                      child: GestureDetector(
+                                        onTap: ctrl.clearDrivingLicense,
+                                        child: Container(
+                                          padding: const EdgeInsets.all(4),
+                                          decoration: const BoxDecoration(
+                                            color: Colors.red,
+                                            shape: BoxShape.circle,
+                                          ),
+                                          child: const Icon(
+                                            Icons.close,
+                                            color: Colors.white,
+                                            size: 16,
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                )
+                              : Column(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    Icon(
+                                      Icons.add_photo_alternate_outlined,
+                                      size: 36,
+                                      color: LightColors.textColor.withOpacity(0.5),
+                                    ),
+                                    const SizedBox(height: 8),
+                                    Text(
+                                      'Tap to upload',
+                                      style: TextStyle(
+                                        fontSize: 13,
+                                        color: LightColors.textColor.withOpacity(0.5),
+                                      ),
+                                    ),
+                                  ],
                                 ),
-                              ),
-                              if (ctrl.hasDrivingLicense)
-                                GestureDetector(
-                                  onTap: ctrl.clearDrivingLicense,
-                                  child: Icon(
-                                    Icons.close,
-                                    size: 18,
-                                    color: LightColors.textColor.withOpacity(0.54),
-                                  ),
-                                ),
-                            ],
-                          ),
                         ),
                       ),
-                      const SizedBox(height: 16),
+                      const SizedBox(height: 20),
 
                       // ─── Terms & Conditions ────────────────────────────
                       Row(
-                        crossAxisAlignment: CrossAxisAlignment.center,
+                        crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Checkbox(
-                            value: ctrl.acceptedTerms,
-                            onChanged: ctrl.toggleTerms,
-                            activeColor: LightColors.primaryColor,
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(4),
+                          SizedBox(
+                            width: 24,
+                            height: 24,
+                            child: Checkbox(
+                              value: ctrl.acceptedTerms,
+                              onChanged: ctrl.toggleTerms,
+                              activeColor: LightColors.primaryColor,
+                              checkColor: Colors.white,
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(4),
+                              ),
+                              side: BorderSide(
+                                color: LightColors.primaryColor,
+                                width: 2,
+                              ),
                             ),
                           ),
+                          const SizedBox(width: 8),
                           Expanded(
                             child: RichText(
                               text: TextSpan(
-                                text: 'I agree to the ',
+                                text: 'By creating an account, you agree to our ',
                                 style: TextStyle(
                                   color: LightColors.textColor.withOpacity(0.7),
                                   fontSize: 13,
+                                  height: 1.4,
                                 ),
                                 children: [
                                   TextSpan(
                                     text: 'Terms and Conditions',
                                     style: TextStyle(
                                       color: LightColors.primaryColor,
-                                      fontWeight: FontWeight.w600,
-                                      fontSize: 13,
+                                      fontWeight: FontWeight.w500,
                                     ),
                                   ),
+                                  const TextSpan(text: ' and '),
+                                  TextSpan(
+                                    text: 'Privacy Notice',
+                                    style: TextStyle(
+                                      color: LightColors.primaryColor,
+                                      fontWeight: FontWeight.w500,
+                                    ),
+                                  ),
+                                  const TextSpan(text: '.'),
                                 ],
                               ),
                             ),
                           ),
                         ],
                       ),
-                      const SizedBox(height: 20),
+                      const SizedBox(height: 30),
 
                       // ─── Sign Up Button ────────────────────────────────
                       SizedBox(
@@ -256,15 +297,14 @@ class SignUpScreen extends StatelessWidget {
                                   'Sign Up',
                                   style: TextStyle(
                                     fontSize: 16,
-                                    fontWeight: FontWeight.w600,
-                                    color: Colors.white,
+                                    fontWeight: FontWeight.w500,
+                                    color: LightColors.textColor,
                                   ),
                                 ),
                         ),
                       ),
                       const SizedBox(height: 24),
 
-                      // ─── Already have an account ───────────────────────
                       Center(
                         child: Row(
                           mainAxisAlignment: MainAxisAlignment.center,
@@ -306,4 +346,3 @@ class SignUpScreen extends StatelessWidget {
     );
   }
 }
-

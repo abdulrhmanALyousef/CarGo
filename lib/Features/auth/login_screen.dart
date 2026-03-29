@@ -167,16 +167,6 @@ class LoginScreen extends StatelessWidget {
                           keyboardType: TextInputType.phone,
                         ),
                         const SizedBox(height: 20),
-                        // حقل OTP عند إرسال الرمز
-                        if (ctrl.codeSent)
-                          CustomTextFormField(
-                            controller: ctrl.otpController,
-                            title: 'Verification Code',
-                            hintText: 'Enter the code sent to your phone',
-                            validator: ctrl.validateOtp,
-                            keyboardType: TextInputType.number,
-                          ),
-                        if (ctrl.codeSent) const SizedBox(height: 15),
                       ],
                       const SizedBox(height: 30),
                       // زر Login

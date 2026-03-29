@@ -1,5 +1,7 @@
+import 'dart:io';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:cargo/core/dataSource/remote_data/firebase_service.dart';
 import 'package:cargo/core/dataSource/local_data/preferences_manager.dart';
 import 'package:cargo/Features/Main/main_screen.dart';
@@ -18,23 +20,30 @@ class SignUpController extends ChangeNotifier {
   bool _acceptedTerms = false;
   bool get acceptedTerms => _acceptedTerms;
 
-  String? _drivingLicenseFileName;
-  String? get drivingLicenseFileName => _drivingLicenseFileName;
-  bool get hasDrivingLicense => _drivingLicenseFileName != null;
+  // ─── Driving License ─────────────────────────────────────────────────────
+  File? _licenseFile;
+  File? get licenseFile => _licenseFile;
+  bool get hasDrivingLicense => _licenseFile != null;
 
   void toggleTerms(bool? value) {
     _acceptedTerms = value ?? false;
     notifyListeners();
   }
 
-  void pickDrivingLicense() {
-    // TODO: wire real file_picker here
-    _drivingLicenseFileName = 'driving_license.png';
-    notifyListeners();
+  Future<void> pickDrivingLicense() async {
+    final picker = ImagePicker();
+    final XFile? picked = await picker.pickImage(
+      source: ImageSource.gallery,
+      imageQuality: 80,
+    );
+    if (picked != null) {
+      _licenseFile = File(picked.path);
+      notifyListeners();
+    }
   }
 
   void clearDrivingLicense() {
-    _drivingLicenseFileName = null;
+    _licenseFile = null;
     notifyListeners();
   }
 
@@ -103,6 +112,26 @@ class SignUpController extends ChangeNotifier {
     notifyListeners();
 
     try {
+      // ─── Check duplicates ─────────────────────────────────────────────
+      final phoneExists = await FirebaseService()
+          .isPhoneExists(phoneController.text.trim());
+      if (phoneExists) {
+        _showError(context, 'This phone number is already registered');
+        _isLoading = false;
+        notifyListeners();
+        return;
+      }
+
+      final nationalIdExists = await FirebaseService()
+          .isNationalIdExists(nationalIdController.text.trim());
+      if (nationalIdExists) {
+        _showError(context, 'This national ID is already registered');
+        _isLoading = false;
+        notifyListeners();
+        return;
+      }
+
+      // ─── Create Auth account ──────────────────────────────────────────
       final User? user = await FirebaseService().signUp(
         email: emailController.text.trim(),
         password: passwordController.text.trim(),
@@ -111,16 +140,31 @@ class SignUpController extends ChangeNotifier {
         nationalId: nationalIdController.text.trim(),
       );
 
-      if (user != null) {
-        await PreferencesManager().setBool('isLoggedIn', true);
-        if (context.mounted) {
-          Navigator.pushReplacement(
-            context,
-            MaterialPageRoute(builder: (_) => const MainScreen()),
-          );
-        }
-      } else {
+      if (user == null) {
         _showError(context, 'Sign up failed');
+        _isLoading = false;
+        notifyListeners();
+        return;
+      }
+
+      // ─── Upload driving license ───────────────────────────────────────
+      final licenseUrl = await FirebaseService().uploadDrivingLicense(
+        uid: user.uid,
+        imageFile: _licenseFile!,
+      );
+
+      // ─── Update Firestore with license URL ────────────────────────────
+      await FirebaseService().updateUserLicenseUrl(
+        uid: user.uid,
+        licenseUrl: licenseUrl,
+      );
+
+      await PreferencesManager().setBool('isLoggedIn', true);
+      if (context.mounted) {
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (_) => const MainScreen()),
+        );
       }
     } catch (e) {
       _showError(context, 'Sign up failed: ${e.toString()}');
@@ -148,4 +192,3 @@ class SignUpController extends ChangeNotifier {
     super.dispose();
   }
 }
-
