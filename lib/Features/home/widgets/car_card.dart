@@ -2,7 +2,7 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:shimmer/shimmer.dart';
 import 'package:cargo/Features/home/models/car_model.dart';
-import 'package:cargo/Features/details/car_details_screen.dart';
+import 'package:cargo/Features/details/car_details_screen.dart' show CarDetailsScreen;
 import 'package:cargo/core/theme/light_color.dart';
 
 class CarCard extends StatelessWidget {
@@ -130,7 +130,7 @@ class CarCard extends StatelessWidget {
               children: [
                 Expanded(
                   child: Text(
-                    model.brand,
+                    '${model.brand} ${model.model}',
                     style: const TextStyle(
                       fontSize: 16,
                       fontWeight: FontWeight.w600,
