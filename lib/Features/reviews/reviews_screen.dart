@@ -197,7 +197,7 @@ class ReviewsScreen extends StatelessWidget {
             children: [
               ClipOval(
                 child: SvgPicture.asset(
-                  'assests/images/manicon.svg',
+                  'assets/images/manicon.png',
                   width: 36,
                   height: 36,
                 ),

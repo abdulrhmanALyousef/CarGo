@@ -51,8 +51,8 @@ class _MainScreenState extends State<MainScreen> {
       label: 'Search',
     ),
     BottomNavigationBarItem(
-      icon: Image.asset('assests/images/cityimage.png', width: 24, height: 24),
-      activeIcon: Image.asset('assests/images/cityimage.png', width: 24, height: 24, color: LightColors.primaryColor),
+      icon: Image.asset('assets/images/cityimage.png', width: 24, height: 24),
+      activeIcon: Image.asset('assets/images/cityimage.png', width: 24, height: 24, color: LightColors.primaryColor),
       label: 'Cities',
     ),
     const BottomNavigationBarItem(
