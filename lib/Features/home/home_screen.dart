@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_svg/flutter_svg.dart';
 import 'package:provider/provider.dart';
 import 'package:cargo/core/widgets/search_widget.dart';
 import 'package:cargo/core/theme/light_color.dart';
@@ -49,10 +48,11 @@ class HomeScreen extends StatelessWidget {
                             ],
                           ),
                           ClipOval(
-                            child: SvgPicture.asset(
-                              'assests/images/manicon.svg',
+                            child: Image.asset(
+                              'assests/images/imageicon.png',
                               width: 48,
                               height: 48,
+                              fit: BoxFit.cover,
                             ),
                           ),
                         ],

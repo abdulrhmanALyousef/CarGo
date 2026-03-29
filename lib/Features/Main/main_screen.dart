@@ -39,6 +39,34 @@ class _MainScreenState extends State<MainScreen> {
     const ChatsScreen(),
   ];
 
+  List<BottomNavigationBarItem> get _navigationItems => [
+    const BottomNavigationBarItem(
+      icon: Icon(Icons.home_outlined),
+      activeIcon: Icon(Icons.home_rounded),
+      label: 'Home',
+    ),
+    const BottomNavigationBarItem(
+      icon: Icon(Icons.search_outlined),
+      activeIcon: Icon(Icons.search_rounded),
+      label: 'Search',
+    ),
+    BottomNavigationBarItem(
+      icon: Image.asset('assests/images/cityimage.png', width: 24, height: 24),
+      activeIcon: Image.asset('assests/images/cityimage.png', width: 24, height: 24, color: LightColors.primaryColor),
+      label: 'Cities',
+    ),
+    const BottomNavigationBarItem(
+      icon: Icon(Icons.person_outline_rounded),
+      activeIcon: Icon(Icons.person_rounded),
+      label: 'Profile',
+    ),
+    const BottomNavigationBarItem(
+      icon: Icon(Icons.chat_bubble_outline_rounded),
+      activeIcon: Icon(Icons.chat_bubble_rounded),
+      label: 'Chats',
+    ),
+  ];
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -52,33 +80,7 @@ class _MainScreenState extends State<MainScreen> {
         unselectedLabelStyle: const TextStyle(fontWeight: FontWeight.w400, fontSize: 11),
         type: BottomNavigationBarType.fixed,
         elevation: 8,
-        items: const [
-          BottomNavigationBarItem(
-            icon: Icon(Icons.home_outlined),
-            activeIcon: Icon(Icons.home_rounded),
-            label: 'Home',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.search_outlined),
-            activeIcon: Icon(Icons.search_rounded),
-            label: 'Search',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.location_city_outlined),
-            activeIcon: Icon(Icons.location_city_rounded),
-            label: 'Cities',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.person_outline_rounded),
-            activeIcon: Icon(Icons.person_rounded),
-            label: 'Profile',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.chat_bubble_outline_rounded),
-            activeIcon: Icon(Icons.chat_bubble_rounded),
-            label: 'Chats',
-          ),
-        ],
+        items: _navigationItems,
       ),
     );
   }
