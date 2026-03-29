@@ -2,6 +2,7 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:shimmer/shimmer.dart';
 import 'package:cargo/Features/home/models/car_model.dart';
+import 'package:cargo/core/theme/light_color.dart';
 
 class CarDetailsScreen extends StatelessWidget {
   final Car model;
@@ -11,19 +12,18 @@ class CarDetailsScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: LightColors.backgroundColor,
       body: CustomScrollView(
         slivers: [
-          // الصورة الرئيسية مع AppBar
           SliverAppBar(
             expandedHeight: 320,
             pinned: true,
-            backgroundColor: Colors.white,
+            backgroundColor: LightColors.backgroundColor,
             elevation: 0,
             leading: Container(
               margin: const EdgeInsets.all(8),
               decoration: BoxDecoration(
-                color: Colors.black.withOpacity(0.5),
+                color: LightColors.textColor.withOpacity(0.5),
                 shape: BoxShape.circle,
               ),
               child: IconButton(
@@ -35,7 +35,7 @@ class CarDetailsScreen extends StatelessWidget {
               Container(
                 margin: const EdgeInsets.all(8),
                 decoration: BoxDecoration(
-                  color: Colors.black.withOpacity(0.5),
+                  color: LightColors.textColor.withOpacity(0.5),
                   shape: BoxShape.circle,
                 ),
                 child: IconButton(
@@ -51,8 +51,16 @@ class CarDetailsScreen extends StatelessWidget {
                   CachedNetworkImage(
                     imageUrl: model.images.isNotEmpty ? model.images.first : '',
                     fit: BoxFit.cover,
+                    placeholder: (context, url) => Shimmer.fromColors(
+                      baseColor: Colors.grey.shade300,
+                      highlightColor: Colors.grey.shade100,
+                      child: Container(color: Colors.white),
+                    ),
+                    errorWidget: (context, url, error) => Container(
+                      color: Colors.grey.shade300,
+                      child: const Icon(Icons.directions_car, size: 48),
+                    ),
                   ),
-                  // مؤشر الصور (النقاط)
                   Positioned(
                     bottom: 60,
                     left: 0,
@@ -67,20 +75,21 @@ class CarDetailsScreen extends StatelessWidget {
                           margin: const EdgeInsets.symmetric(horizontal: 3),
                           decoration: BoxDecoration(
                             shape: BoxShape.circle,
-                            color: index == 0 ? Colors.white : Colors.white.withOpacity(0.4),
+                            color: index == 0
+                                ? Colors.white
+                                : Colors.white.withOpacity(0.4),
                           ),
                         ),
                       ),
                     ),
                   ),
-                  // أيقونة 360
                   Positioned(
                     bottom: 16,
                     right: 16,
                     child: Container(
                       padding: const EdgeInsets.all(8),
                       decoration: BoxDecoration(
-                        color: Colors.black.withOpacity(0.6),
+                        color: LightColors.textColor.withOpacity(0.6),
                         borderRadius: BorderRadius.circular(8),
                       ),
                       child: const Icon(
@@ -104,54 +113,55 @@ class CarDetailsScreen extends StatelessWidget {
             ),
           ),
 
-          // المحتوى
+
           SliverToBoxAdapter(
             child: Padding(
               padding: const EdgeInsets.all(16),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // الصف الأول: Electric Car + Rating
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      // Electric Car Tag
                       if (model.isElectric)
                         Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 12, vertical: 6),
                           decoration: BoxDecoration(
-                            color: Colors.grey[100],
+                            color: LightColors.backgroundColor,
                             borderRadius: BorderRadius.circular(8),
-                            border: Border.all(color: Colors.grey[300]!),
+                            border: Border.all(
+                                color: LightColors.textColor.withOpacity(0.2)),
                           ),
                           child: const Text(
                             'Electric Car',
                             style: TextStyle(
                               fontSize: 12,
-                              color: Colors.black87,
+                              color: LightColors.textColor,
                             ),
                           ),
                         )
                       else
                         const SizedBox.shrink(),
 
-                      // Rating
                       Row(
                         children: [
-                          const Icon(Icons.star, color: Color(0xFF2D5016), size: 16),
+                          const Icon(Icons.star,
+                              color: LightColors.primaryColor, size: 16),
                           const SizedBox(width: 4),
                           Text(
                             '${model.rating}',
                             style: const TextStyle(
                               fontSize: 14,
                               fontWeight: FontWeight.w600,
+                              color: LightColors.textColor,
                             ),
                           ),
                           Text(
                             ' (${model.reviewsCount} review)',
                             style: TextStyle(
                               fontSize: 12,
-                              color: Colors.grey[600],
+                              color: LightColors.textColor.withOpacity(0.5),
                             ),
                           ),
                         ],
@@ -161,33 +171,36 @@ class CarDetailsScreen extends StatelessWidget {
 
                   const SizedBox(height: 12),
 
-                  // اسم السيارة والسعر
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      Text(
-                        '${model.brand} ${model.model}',
-                        style: const TextStyle(
-                          fontSize: 20,
-                          fontWeight: FontWeight.w700,
+                      Flexible(
+                        child: Text(
+                          '${model.brand} ${model.model}',
+                          style: const TextStyle(
+                            fontSize: 20,
+                            fontWeight: FontWeight.w700,
+                            color: LightColors.textColor,
+                          ),
                         ),
                       ),
                       RichText(
                         text: TextSpan(
                           children: [
                             TextSpan(
-                              text: 'SAR ${model.pricePerDay.toStringAsFixed(0)}',
+                              text:
+                                  'SAR ${model.pricePerDay.toStringAsFixed(0)}',
                               style: const TextStyle(
                                 fontSize: 18,
                                 fontWeight: FontWeight.w700,
-                                color: Colors.black,
+                                color: LightColors.textColor,
                               ),
                             ),
                             TextSpan(
                               text: '/day',
                               style: TextStyle(
                                 fontSize: 12,
-                                color: Colors.grey[600],
+                                color: LightColors.textColor.withOpacity(0.5),
                               ),
                             ),
                           ],
@@ -198,26 +211,34 @@ class CarDetailsScreen extends StatelessWidget {
 
                   const SizedBox(height: 12),
 
-                  // المواصفات (Seats, Auto, Speed)
                   Row(
                     children: [
                       _buildSpecItem(Icons.event_seat, '${model.seats} Seats'),
                       const SizedBox(width: 16),
                       _buildSpecItem(Icons.settings, model.transmission),
                       const SizedBox(width: 16),
-                      _buildSpecItem(Icons.speed, '${model.km}Km/h'),
+                      _buildSpecItem(
+                          Icons.speed, '${model.km.toStringAsFixed(0)} Km'),
                     ],
                   ),
 
                   const SizedBox(height: 20),
 
-                  // صاحب السيارة
                   Row(
                     children: [
                       CircleAvatar(
                         radius: 24,
-                        backgroundImage: NetworkImage(model.ownerImage ?? ''),
-                        backgroundColor: Colors.grey[300],
+                        backgroundImage: model.ownerImage != null &&
+                                model.ownerImage!.isNotEmpty
+                            ? NetworkImage(model.ownerImage!)
+                            : null,
+                        backgroundColor:
+                            LightColors.textColor.withOpacity(0.15),
+                        child: model.ownerImage == null ||
+                                model.ownerImage!.isEmpty
+                            ? const Icon(Icons.person,
+                                color: LightColors.textColor)
+                            : null,
                       ),
                       const SizedBox(width: 12),
                       Expanded(
@@ -229,13 +250,14 @@ class CarDetailsScreen extends StatelessWidget {
                               style: const TextStyle(
                                 fontSize: 14,
                                 fontWeight: FontWeight.w600,
+                                color: LightColors.textColor,
                               ),
                             ),
                             Text(
                               'View Owner Profile',
                               style: TextStyle(
                                 fontSize: 12,
-                                color: Colors.grey[600],
+                                color: LightColors.textColor.withOpacity(0.5),
                               ),
                             ),
                           ],
@@ -244,19 +266,21 @@ class CarDetailsScreen extends StatelessWidget {
                       Container(
                         padding: const EdgeInsets.all(8),
                         decoration: BoxDecoration(
-                          color: const Color(0xFF2D5016),
+                          color: LightColors.primaryColor,
                           borderRadius: BorderRadius.circular(8),
                         ),
-                        child: const Icon(Icons.chat_bubble, color: Colors.white, size: 18),
+                        child: const Icon(Icons.chat_bubble,
+                            color: Colors.white, size: 18),
                       ),
                       const SizedBox(width: 8),
                       Container(
                         padding: const EdgeInsets.all(8),
                         decoration: BoxDecoration(
-                          color: const Color(0xFF2D5016),
+                          color: LightColors.primaryColor,
                           borderRadius: BorderRadius.circular(8),
                         ),
-                        child: const Icon(Icons.phone, color: Colors.white, size: 18),
+                        child: const Icon(Icons.phone,
+                            color: Colors.white, size: 18),
                       ),
                     ],
                   ),
@@ -269,6 +293,7 @@ class CarDetailsScreen extends StatelessWidget {
                     style: TextStyle(
                       fontSize: 16,
                       fontWeight: FontWeight.w700,
+                      color: LightColors.textColor,
                     ),
                   ),
                   const SizedBox(height: 8),
@@ -276,10 +301,12 @@ class CarDetailsScreen extends StatelessWidget {
                     text: TextSpan(
                       children: [
                         TextSpan(
-                          text: model.overview ?? 'No description available.',
+                          text: model.overview.isNotEmpty
+                              ? model.overview
+                              : 'No description available.',
                           style: TextStyle(
                             fontSize: 14,
-                            color: Colors.grey[600],
+                            color: LightColors.textColor.withOpacity(0.6),
                             height: 1.5,
                           ),
                         ),
@@ -287,7 +314,7 @@ class CarDetailsScreen extends StatelessWidget {
                           text: ' Read More ...',
                           style: TextStyle(
                             fontSize: 14,
-                            color: Color(0xFF2D5016),
+                            color: LightColors.primaryColor,
                             fontWeight: FontWeight.w600,
                           ),
                         ),
@@ -297,7 +324,6 @@ class CarDetailsScreen extends StatelessWidget {
 
                   const SizedBox(height: 24),
 
-                  // Gallery
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
@@ -306,13 +332,14 @@ class CarDetailsScreen extends StatelessWidget {
                         style: TextStyle(
                           fontSize: 16,
                           fontWeight: FontWeight.w700,
+                          color: LightColors.textColor,
                         ),
                       ),
                       Text(
                         'See all',
                         style: TextStyle(
                           fontSize: 12,
-                          color: Colors.grey[600],
+                          color: LightColors.textColor.withOpacity(0.5),
                         ),
                       ),
                     ],
@@ -322,16 +349,27 @@ class CarDetailsScreen extends StatelessWidget {
                     height: 80,
                     child: ListView.builder(
                       scrollDirection: Axis.horizontal,
-                      itemCount: model.images.length > 3 ? 3 : model.images.length,
+                      itemCount:
+                          model.images.length > 3 ? 3 : model.images.length,
                       itemBuilder: (context, index) {
                         return Container(
                           width: 100,
                           margin: const EdgeInsets.only(right: 8),
                           decoration: BoxDecoration(
                             borderRadius: BorderRadius.circular(12),
-                            image: DecorationImage(
-                              image: NetworkImage(model.images[index]),
-                              fit: BoxFit.cover,
+                          ),
+                          clipBehavior: Clip.hardEdge,
+                          child: CachedNetworkImage(
+                            imageUrl: model.images[index],
+                            fit: BoxFit.cover,
+                            placeholder: (context, url) => Shimmer.fromColors(
+                              baseColor: Colors.grey.shade300,
+                              highlightColor: Colors.grey.shade100,
+                              child: Container(color: Colors.white),
+                            ),
+                            errorWidget: (context, url, error) => Container(
+                              color: Colors.grey.shade300,
+                              child: const Icon(Icons.image, size: 24),
                             ),
                           ),
                         );
@@ -341,12 +379,12 @@ class CarDetailsScreen extends StatelessWidget {
 
                   const SizedBox(height: 24),
 
-                  // Details Grid
                   const Text(
                     'Details',
                     style: TextStyle(
                       fontSize: 16,
                       fontWeight: FontWeight.w700,
+                      color: LightColors.textColor,
                     ),
                   ),
                   const SizedBox(height: 16),
@@ -356,18 +394,21 @@ class CarDetailsScreen extends StatelessWidget {
                     crossAxisCount: 2,
                     childAspectRatio: 3,
                     children: [
-                      _buildDetailItem(Icons.event_seat, '${model.seats} Seats'),
+                      _buildDetailItem(
+                          Icons.event_seat, '${model.seats} Seats'),
                       _buildDetailItem(Icons.settings, model.transmission),
-                      _buildDetailItem(Icons.speed, '${model.km}Km/h'),
-                      _buildDetailItem(Icons.square_foot, '2,782 m²'),
-                      _buildDetailItem(Icons.check_circle, 'Fresh Condition'),
-                      _buildDetailItem(Icons.electric_bolt, model.isElectric ? 'Electric' : 'Fuel'),
+                      _buildDetailItem(Icons.speed,
+                          '${model.km.toStringAsFixed(0)} Km'),
+                      _buildDetailItem(
+                          Icons.calendar_today, '${model.year}'),
+                      _buildDetailItem(Icons.location_on, model.location),
+                      _buildDetailItem(Icons.electric_bolt,
+                          model.isElectric ? 'Electric' : 'Fuel'),
                     ],
                   ),
 
                   const SizedBox(height: 24),
 
-                  // Reviews
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
@@ -376,13 +417,14 @@ class CarDetailsScreen extends StatelessWidget {
                         style: TextStyle(
                           fontSize: 16,
                           fontWeight: FontWeight.w700,
+                          color: LightColors.textColor,
                         ),
                       ),
                       Text(
                         'See all',
                         style: TextStyle(
                           fontSize: 12,
-                          color: Colors.grey[600],
+                          color: LightColors.textColor.withOpacity(0.5),
                         ),
                       ),
                     ],
@@ -395,14 +437,17 @@ class CarDetailsScreen extends StatelessWidget {
                         style: const TextStyle(
                           fontSize: 32,
                           fontWeight: FontWeight.w700,
+                          color: LightColors.textColor,
                         ),
                       ),
                       const SizedBox(width: 8),
                       Row(
                         children: List.generate(5, (index) {
                           return Icon(
-                            index < model.rating.floor() ? Icons.star : Icons.star_border,
-                            color: const Color(0xFF2D5016),
+                            index < model.rating.floor()
+                                ? Icons.star
+                                : Icons.star_border,
+                            color: LightColors.primaryColor,
                             size: 16,
                           );
                         }),
@@ -412,7 +457,7 @@ class CarDetailsScreen extends StatelessWidget {
                         '${model.reviewsCount} ratings',
                         style: TextStyle(
                           fontSize: 12,
-                          color: Colors.grey[600],
+                          color: LightColors.textColor.withOpacity(0.5),
                         ),
                       ),
                     ],
@@ -440,7 +485,7 @@ class CarDetailsScreen extends StatelessWidget {
           color: Colors.white,
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(0.05),
+              color: LightColors.textColor.withOpacity(0.05),
               blurRadius: 10,
             ),
           ],
@@ -452,7 +497,8 @@ class CarDetailsScreen extends StatelessWidget {
                 child: OutlinedButton(
                   onPressed: () {},
                   style: OutlinedButton.styleFrom(
-                    side: const BorderSide(color: Colors.grey),
+                    side: BorderSide(
+                        color: LightColors.textColor.withOpacity(0.3)),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(24),
                     ),
@@ -461,7 +507,7 @@ class CarDetailsScreen extends StatelessWidget {
                   child: const Text(
                     'Pre-Booking',
                     style: TextStyle(
-                      color: Colors.black,
+                      color: LightColors.textColor,
                       fontWeight: FontWeight.w600,
                     ),
                   ),
@@ -472,7 +518,7 @@ class CarDetailsScreen extends StatelessWidget {
                 child: ElevatedButton(
                   onPressed: () {},
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF2D5016),
+                    backgroundColor: LightColors.primaryColor,
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(24),
                     ),
@@ -497,13 +543,13 @@ class CarDetailsScreen extends StatelessWidget {
   Widget _buildSpecItem(IconData icon, String text) {
     return Row(
       children: [
-        Icon(icon, size: 16, color: Colors.grey[600]),
+        Icon(icon, size: 16, color: LightColors.textColor.withOpacity(0.5)),
         const SizedBox(width: 4),
         Text(
           text,
           style: TextStyle(
             fontSize: 12,
-            color: Colors.grey[600],
+            color: LightColors.textColor.withOpacity(0.5),
           ),
         ),
       ],
@@ -516,17 +562,21 @@ class CarDetailsScreen extends StatelessWidget {
         Container(
           padding: const EdgeInsets.all(6),
           decoration: BoxDecoration(
-            color: const Color(0xFF2D5016),
+            color: LightColors.primaryColor,
             borderRadius: BorderRadius.circular(6),
           ),
           child: Icon(icon, size: 16, color: Colors.white),
         ),
         const SizedBox(width: 8),
-        Text(
-          text,
-          style: const TextStyle(
-            fontSize: 13,
-            fontWeight: FontWeight.w500,
+        Flexible(
+          child: Text(
+            text,
+            style: const TextStyle(
+              fontSize: 13,
+              fontWeight: FontWeight.w500,
+              color: LightColors.textColor,
+            ),
+            overflow: TextOverflow.ellipsis,
           ),
         ),
       ],
@@ -542,7 +592,8 @@ class CarDetailsScreen extends StatelessWidget {
             width: 20,
             child: Text(
               '$star',
-              style: const TextStyle(fontSize: 12),
+              style: const TextStyle(
+                  fontSize: 12, color: LightColors.textColor),
             ),
           ),
           const SizedBox(width: 8),
@@ -551,8 +602,9 @@ class CarDetailsScreen extends StatelessWidget {
               borderRadius: BorderRadius.circular(4),
               child: LinearProgressIndicator(
                 value: percentage,
-                backgroundColor: Colors.grey[200],
-                valueColor: const AlwaysStoppedAnimation<Color>(Color(0xFF2D5016)),
+                backgroundColor: LightColors.textColor.withOpacity(0.1),
+                valueColor: const AlwaysStoppedAnimation<Color>(
+                    LightColors.primaryColor),
                 minHeight: 6,
               ),
             ),
@@ -564,7 +616,7 @@ class CarDetailsScreen extends StatelessWidget {
               '${(percentage * 100).toInt()}%',
               style: TextStyle(
                 fontSize: 12,
-                color: Colors.grey[600],
+                color: LightColors.textColor.withOpacity(0.5),
               ),
               textAlign: TextAlign.end,
             ),
