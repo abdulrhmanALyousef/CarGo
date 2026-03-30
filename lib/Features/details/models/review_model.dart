@@ -8,7 +8,6 @@ class Review {
   final String comment;
   final DateTime? createdAt;
 
-  // بيانات اليوزر اللي قيّم
   String? userName;
   String? userImage;
 

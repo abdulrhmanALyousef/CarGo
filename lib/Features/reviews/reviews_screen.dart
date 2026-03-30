@@ -49,7 +49,6 @@ class ReviewsScreen extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // ── المتوسط + النجوم ──────────────────────────────────────
             Container(
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
@@ -108,7 +107,6 @@ class ReviewsScreen extends StatelessWidget {
 
             const SizedBox(height: 24),
 
-            // ── عدد الريفيوز ───────────────────────────────────────────
             Text(
               '${reviews.length} Reviews',
               style: const TextStyle(
@@ -119,7 +117,6 @@ class ReviewsScreen extends StatelessWidget {
             ),
             const SizedBox(height: 16),
 
-            // ── قائمة الريفيوز ─────────────────────────────────────────
             if (reviews.isEmpty)
               Padding(
                 padding: const EdgeInsets.symmetric(vertical: 32),
