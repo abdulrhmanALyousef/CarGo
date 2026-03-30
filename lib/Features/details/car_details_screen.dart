@@ -26,7 +26,6 @@ class CarDetailsScreen extends StatelessWidget {
             backgroundColor: LightColors.backgroundColor,
             body: CustomScrollView(
               slivers: [
-                // ── صور السيارة (سوايب) ───────────────────────────────
                 SliverAppBar(
                   expandedHeight: 320,
                   pinned: true,
@@ -60,7 +59,6 @@ class CarDetailsScreen extends StatelessWidget {
                     background: Stack(
                       fit: StackFit.expand,
                       children: [
-                        // ── PageView للصور ──────────────────────────────
                         PageView.builder(
                           itemCount: model.images.length,
                           onPageChanged: (index) => ctrl.setImageIndex(index),
@@ -81,7 +79,6 @@ class CarDetailsScreen extends StatelessWidget {
                           },
                         ),
 
-                        // ── مؤشر الصور (النقاط) ────────────────────────
                         Positioned(
                           bottom: 60,
                           left: 0,
@@ -105,7 +102,6 @@ class CarDetailsScreen extends StatelessWidget {
                           ),
                         ),
 
-                        // ── أيقونة 360 ─────────────────────────────────
                         Positioned(
                           bottom: 16,
                           right: 16,
@@ -136,7 +132,6 @@ class CarDetailsScreen extends StatelessWidget {
                   ),
                 ),
 
-                // ── المحتوى ─────────────────────────────────────────────
                 SliverToBoxAdapter(
                   child: Padding(
                     padding: const EdgeInsets.all(16),
@@ -188,7 +183,6 @@ class CarDetailsScreen extends StatelessWidget {
 
                         const SizedBox(height: 12),
 
-                        // اسم السيارة والسعر
                         Row(
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
@@ -228,7 +222,6 @@ class CarDetailsScreen extends StatelessWidget {
 
                         const SizedBox(height: 12),
 
-                        // المواصفات
                         Row(
                           children: [
                             _buildSpecItem(Icons.event_seat, '${model.seats} Seats'),
@@ -241,7 +234,6 @@ class CarDetailsScreen extends StatelessWidget {
 
                         const SizedBox(height: 20),
 
-                        // صاحب السيارة
                         Row(
                           children: [
                             ClipOval(
@@ -426,7 +418,6 @@ class CarDetailsScreen extends StatelessWidget {
                         ),
                         const SizedBox(height: 12),
 
-                        // المتوسط + النجوم
                         Row(
                           children: [
                             Text(
@@ -459,7 +450,6 @@ class CarDetailsScreen extends StatelessWidget {
                         ),
                         const SizedBox(height: 16),
 
-                        // Rating Bars من البيانات الفعلية
                         ...List.generate(5, (i) {
                           final star = 5 - i;
                           final pct = ctrl.ratingDistribution[star] ?? 0.0;
@@ -468,7 +458,6 @@ class CarDetailsScreen extends StatelessWidget {
 
                         const SizedBox(height: 24),
 
-                        // ── قائمة الريفيوز الفعلية ───────────────────────
                         if (ctrl.isLoadingReviews)
                           const Center(
                             child: Padding(
@@ -495,7 +484,6 @@ class CarDetailsScreen extends StatelessWidget {
               ],
             ),
 
-            // ── الأزرار السفلية ───────────────────────────────────────
             bottomNavigationBar: Container(
               padding: const EdgeInsets.all(16),
               decoration: const BoxDecoration(color: Color(0xFFBDBDBD)),
@@ -622,7 +610,6 @@ class CarDetailsScreen extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // اسم اليوزر + صورته + التقييم
           Row(
             children: [
               ClipOval(

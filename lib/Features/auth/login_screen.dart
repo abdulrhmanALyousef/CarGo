@@ -52,7 +52,6 @@ class LoginScreen extends StatelessWidget {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      // عنوان Welcome Back!
                       Text(
                         'Welcome Back!',
                         style: TextStyle(
@@ -62,7 +61,6 @@ class LoginScreen extends StatelessWidget {
                         ),
                       ),
                       const SizedBox(height: 8),
-                      // نص فرعي
                       Text(
                         'Enter your registered account to sign in',
                         style: TextStyle(
@@ -71,7 +69,6 @@ class LoginScreen extends StatelessWidget {
                         ),
                       ),
                       const SizedBox(height: 30),
-                      // تبديل Email / Phone Number
                       Container(
                         decoration: BoxDecoration(
                           color: const Color(0xFFBDBDBD),
@@ -125,7 +122,6 @@ class LoginScreen extends StatelessWidget {
                         ),
                       ),
                       const SizedBox(height: 25),
-                      // حقل Email أو Phone Number بناءً على الاختيار
                       if (ctrl.isEmail) ...[
                         CustomTextFormField(
                           controller: ctrl.emailController,
@@ -169,7 +165,6 @@ class LoginScreen extends StatelessWidget {
                         const SizedBox(height: 20),
                       ],
                       const SizedBox(height: 30),
-                      // زر Login
                       SizedBox(
                         width: double.infinity,
                         height: 55,
@@ -203,7 +198,6 @@ class LoginScreen extends StatelessWidget {
                         ),
                       ),
                       const SizedBox(height: 40),
-                      // Sign In في الأسفل
                       Center(
                         child: Row(
                           mainAxisAlignment: MainAxisAlignment.center,
