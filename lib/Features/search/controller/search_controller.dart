@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:cargo/Features/home/models/car_model.dart';
+
+import 'package:cargo/models/car_model.dart';
 
 class SearchCarController extends ChangeNotifier {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;

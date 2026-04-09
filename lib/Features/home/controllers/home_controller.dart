@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:cargo/core/widgets/location_sheet.dart';
 import 'package:cargo/core/theme/light_color.dart';
 import 'package:cargo/core/dataSource/remote_data/firebase_service.dart';
-import 'package:cargo/Features/home/models/car_model.dart';
+import 'package:cargo/models/car_model.dart';
 
 class HomeController extends ChangeNotifier {
   HomeController() {
