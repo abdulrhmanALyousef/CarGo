@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:cargo/Features/home/models/car_model.dart';
-import 'package:cargo/Features/details/models/review_model.dart';
+import 'package:cargo/models/car_model.dart';
+import 'package:cargo/models/review_model.dart';
 import 'package:cargo/core/dataSource/remote_data/firebase_service.dart';
 
 class CarDetailsController extends ChangeNotifier {
