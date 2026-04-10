@@ -1,3 +1,5 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
+
 class Car {
   final String id;
   final bool available;
@@ -17,6 +19,8 @@ class Car {
   final int year;
   final String? ownerName;
   final String? ownerImage;
+  final DateTime? availableFrom;
+  final DateTime? availableTo;
 
   Car({
     required this.id,
@@ -37,6 +41,8 @@ class Car {
     required this.year,
     this.ownerName,
     this.ownerImage,
+    this.availableFrom,
+    this.availableTo,
   });
 
   factory Car.fromJson(Map<String, dynamic> json) {
@@ -61,6 +67,12 @@ class Car {
       year: (json['year'] as num?)?.toInt() ?? 0,
       ownerName: json['ownerName'] as String?,
       ownerImage: json['ownerImage'] as String?,
+      availableFrom: json['availableFrom'] is Timestamp
+          ? (json['availableFrom'] as Timestamp).toDate()
+          : null,
+      availableTo: json['availableTo'] is Timestamp
+          ? (json['availableTo'] as Timestamp).toDate()
+          : null,
     );
   }
 
@@ -84,6 +96,8 @@ class Car {
       'year': year,
       'ownerName': ownerName,
       'ownerImage': ownerImage,
+      'availableFrom': availableFrom != null ? Timestamp.fromDate(availableFrom!) : null,
+      'availableTo': availableTo != null ? Timestamp.fromDate(availableTo!) : null,
     };
   }
 }
