@@ -8,6 +8,7 @@ import 'package:cargo/models/review_model.dart';
 import 'package:cargo/Features/details/controllers/car_details_controller.dart';
 import 'package:cargo/core/theme/light_color.dart';
 import 'package:cargo/Features/reviews/reviews_screen.dart';
+import 'package:cargo/Features/booking/booking_screen.dart';
 
 class CarDetailsScreen extends StatelessWidget {
   final Car model;
@@ -507,7 +508,14 @@ class CarDetailsScreen extends StatelessWidget {
                     const SizedBox(width: 12),
                     Expanded(
                       child: ElevatedButton(
-                        onPressed: () {},
+                        onPressed: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) => BookingScreen(car: model),
+                            ),
+                          );
+                        },
                         style: ElevatedButton.styleFrom(
                           backgroundColor: LightColors.primaryColor,
                           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(9999)),
