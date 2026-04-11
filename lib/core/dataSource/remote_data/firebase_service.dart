@@ -162,7 +162,10 @@ class FirebaseService {
   /// Get User Data from Firestore
   Future<Map<String, dynamic>?> getUserData({required String uid}) async {
     try {
+      print('DEBUG getUserData: fetching users/$uid');
       final DocumentSnapshot doc = await _firestore.collection('users').doc(uid).get();
+      print('DEBUG getUserData: doc.exists=${doc.exists}  data=${doc.data()}');
+      if (!doc.exists) return null;
       return doc.data() as Map<String, dynamic>?;
     } catch (e) {
       print('Get User Data Error: $e');

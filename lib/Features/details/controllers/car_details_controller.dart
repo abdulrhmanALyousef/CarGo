@@ -8,10 +8,14 @@ class CarDetailsController extends ChangeNotifier {
 
   CarDetailsController({required this.car}) {
     fetchReviews();
+    fetchOwnerName();
   }
 
   int _currentImageIndex = 0;
   int get currentImageIndex => _currentImageIndex;
+
+  String? _ownerName;
+  String get ownerName => _ownerName ?? 'Owner';
 
   void setImageIndex(int index) {
     _currentImageIndex = index;
@@ -40,6 +44,23 @@ class CarDetailsController extends ChangeNotifier {
     }
     if (_reviews.isEmpty) return {5: 0, 4: 0, 3: 0, 2: 0, 1: 0};
     return counts.map((star, count) => MapEntry(star, count / _reviews.length));
+  }
+
+  Future<void> fetchOwnerName() async {
+    final ownerId = car.ownerId.trim();
+    print('DEBUG fetchOwnerName: ownerId="$ownerId"');
+    if (ownerId.isEmpty) return;
+    try {
+      final userData = await FirebaseService().getUserData(uid: ownerId);
+      print('DEBUG fetchOwnerName: userData=$userData');
+      if (userData != null) {
+        _ownerName = userData['fullName'] as String?;
+        print('DEBUG fetchOwnerName: _ownerName=$_ownerName');
+        notifyListeners();
+      }
+    } catch (e) {
+      print('DEBUG fetchOwnerName error: $e');
+    }
   }
 
   Future<void> fetchReviews() async {
