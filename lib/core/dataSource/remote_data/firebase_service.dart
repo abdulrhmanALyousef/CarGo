@@ -22,6 +22,9 @@ class FirebaseService {
     required String uid,
     required File imageFile,
   }) async {
+    if (_auth.currentUser == null) {
+      throw Exception('User must be authenticated before uploading files');
+    }
     final ref = _storage.ref().child('driving_licenses/$uid/license.jpg');
     await ref.putFile(imageFile);
     return await ref.getDownloadURL();
