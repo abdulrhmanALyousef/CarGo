@@ -6,6 +6,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:cargo/models/car_model.dart';
 import 'package:cargo/models/booking_model.dart';
 import 'package:cargo/core/theme/light_color.dart';
+import 'package:cargo/services/stripe_service.dart';
 
 // ════════════════════════════════════════════════════════════════════════════
 // FIRESTORE PERMISSION_DENIED — WHY IT HAPPENS AND HOW THIS CONTROLLER HANDLES IT
@@ -45,6 +46,7 @@ class BookingController extends ChangeNotifier {
   BookingController({required this.car});
 
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+  final StripeService _stripe = StripeService();
 
   // ── State ────────────────────────────────────────────────────────────────
   DateTime? _startDate;
@@ -255,7 +257,7 @@ class BookingController extends ChangeNotifier {
       return false;
     }
 
-    // ── Steps 3 & 4: Firestore operations ────────────────────────────────
+    // ── Steps 3–5: Overlap check → Stripe verification → Firestore write ────
     _isLoading = true;
     _firestoreRulesError = false;
     _error = null;
@@ -263,9 +265,7 @@ class BookingController extends ChangeNotifier {
 
     try {
       // Step 3: Overlap check — reads all bookings for this car.
-      // Auth is confirmed. But if Firestore rules check resource.data.userId
-      // instead of just request.auth != null, this will still throw
-      // FirebaseException with code 'permission-denied'.
+      // Runs before Stripe so we don't open the payment sheet for taken dates.
       final overlaps = await _hasOverlap(_startDate!, _endDate!);
       if (overlaps) {
         _error = 'This car is already booked for the selected dates';
@@ -275,7 +275,16 @@ class BookingController extends ChangeNotifier {
         return false;
       }
 
-      // Step 4: Write booking document.
+      // Step 4: Stripe card verification via SetupIntent.
+      // No charge is made — this only confirms the card is real and valid.
+      // Returns false if the user closes the sheet without completing.
+      final cardVerified = await _stripe.verifyCard(context);
+      if (!cardVerified) {
+        // User cancelled — stop silently, no error shown.
+        return false;
+      }
+
+      // Step 5: Write booking document (card confirmed valid).
       final currentUser = FirebaseAuth.instance.currentUser!;
       final docRef = _firestore.collection('bookings').doc();
 
