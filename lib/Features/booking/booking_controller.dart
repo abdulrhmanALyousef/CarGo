@@ -40,10 +40,11 @@ class BookingController extends ChangeNotifier {
     // Initialise the calendar on the first selectable month.
     // If availableFrom is in the future show that month; otherwise today.
     final today = _dateOnly(DateTime.now());
-    final fromDay = car.availableFrom != null
-        ? _dateOnly(car.availableFrom!)
-        : today;
-    _focusedDay = fromDay.isBefore(today) ? today : fromDay;
+    // Always open on the current month, regardless of availableFrom.
+    _focusedDay = today;
+
+    print('[BookingController] availableFrom: ${car.availableFrom}');
+    print('[BookingController] availableTo:   ${car.availableTo}');
 
     loadAvailability(); // fire-and-forget; _isLoadingAvailability = true until done
   }
@@ -115,13 +116,13 @@ class BookingController extends ChangeNotifier {
   // These are passed directly to TableCalendar's firstDay / lastDay so the
   // widget itself enforces the bounds without any extra logic.
 
-  // Earliest selectable day: later of today and availableFrom.
-  // Prevents booking in the past even if availableFrom is historical.
+  // Earliest NAVIGABLE day — controls how far back the user can scroll.
+  // Set one year behind today so the user can browse months before
+  // availableFrom (those months are visible but disabled via
+  // enabledDayPredicate — navigation bound ≠ selectability bound).
   DateTime get calendarFirstDay {
-    final today = _dateOnly(DateTime.now());
-    if (car.availableFrom == null) return today;
-    final from = _dateOnly(car.availableFrom!);
-    return from.isBefore(today) ? today : from;
+    final now = DateTime.now();
+    return DateTime(now.year - 1, now.month, now.day);
   }
 
   // Latest selectable day: availableTo or 1 year out as a safe fallback.
@@ -133,9 +134,21 @@ class BookingController extends ChangeNotifier {
   // ── Day Predicates ───────────────────────────────────────────────────────
 
   // Passed to TableCalendar.enabledDayPredicate.
-  // Within [firstDay, lastDay], any day for which this returns false is
-  // greyed out and cannot be tapped — used to block already-booked days.
-  bool isDayEnabled(DateTime day) => !isBooked(day);
+  // Returns false for any day that must not be tappable:
+  //   • before availableFrom  (car not yet available)
+  //   • after availableTo     (car no longer available)
+  //   • inside a booked range (already reserved)
+  // Time is ignored — all comparisons use date-only values.
+  bool isDayEnabled(DateTime day) {
+    final d = _dateOnly(day);
+    if (car.availableFrom != null && d.isBefore(_dateOnly(car.availableFrom!))) {
+      return false;
+    }
+    if (car.availableTo != null && d.isAfter(_dateOnly(car.availableTo!))) {
+      return false;
+    }
+    return !isBooked(d);
+  }
 
   // Returns true when [day] is occupied by an existing booking.
   bool isBooked(DateTime day) => _bookedDates.contains(_dateOnly(day));
