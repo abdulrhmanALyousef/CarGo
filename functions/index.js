@@ -1,32 +1,38 @@
-/**
- * Import function triggers from their respective submodules:
- *
- * const {onCall} = require("firebase-functions/v2/https");
- * const {onDocumentWritten} = require("firebase-functions/v2/firestore");
- *
- * See a full list of supported triggers at https://firebase.google.com/docs/functions
- */
-
-const {setGlobalOptions} = require("firebase-functions");
-const {onRequest} = require("firebase-functions/https");
+const { setGlobalOptions } = require("firebase-functions");
+const { onCall, HttpsError } = require("firebase-functions/v2/https");
 const logger = require("firebase-functions/logger");
+const Stripe = require("stripe");
 
-// For cost control, you can set the maximum number of containers that can be
-// running at the same time. This helps mitigate the impact of unexpected
-// traffic spikes by instead downgrading performance. This limit is a
-// per-function limit. You can override the limit for each function using the
-// `maxInstances` option in the function's options, e.g.
-// `onRequest({ maxInstances: 5 }, (req, res) => { ... })`.
-// NOTE: setGlobalOptions does not apply to functions using the v1 API. V1
-// functions should each use functions.runWith({ maxInstances: 10 }) instead.
-// In the v1 API, each function can only serve one request per container, so
-// this will be the maximum concurrent request count.
 setGlobalOptions({ maxInstances: 10 });
 
-// Create and deploy your first functions
-// https://firebase.google.com/docs/functions/get-started
+// ── Stripe secret key ────────────────────────────────────────────────────────
+// Replace with your actual Stripe secret key (STRIPE_SECRET_KEY_REMOVED... or STRIPE_SECRET_KEY_REMOVED...).
+// For production, store this in Firebase environment config:
+//   firebase functions:secrets:set STRIPE_SECRET_KEY
+// and access via: process.env.STRIPE_SECRET_KEY
+const STRIPE_SECRET_KEY = 'STRIPE_SECRET_KEY_REMOVED';
 
-// exports.helloWorld = onRequest((request, response) => {
-//   logger.info("Hello logs!", {structuredData: true});
-//   response.send("Hello from Firebase!");
-// });
+const stripe = new Stripe(STRIPE_SECRET_KEY, { apiVersion: "2024-06-20" });
+
+// ── createSetupIntent ────────────────────────────────────────────────────────
+// Called from Flutter via FirebaseFunctions.instance.httpsCallable('createSetupIntent').
+// Creates a Stripe SetupIntent — no charge, only card verification.
+// Returns: { clientSecret: String }
+exports.createSetupIntent = onCall(async (request) => {
+  if (!request.auth) {
+    throw new HttpsError("unauthenticated", "User must be authenticated.");
+  }
+
+  try {
+    const setupIntent = await stripe.setupIntents.create({
+      usage: "off_session",
+      metadata: { userId: request.auth.uid },
+    });
+
+    logger.info("SetupIntent created", { uid: request.auth.uid });
+    return { clientSecret: setupIntent.client_secret };
+  } catch (error) {
+    logger.error("Stripe createSetupIntent error:", error);
+    throw new HttpsError("internal", "Failed to create setup intent.");
+  }
+});
