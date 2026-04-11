@@ -147,7 +147,8 @@ class LoginScreen extends StatelessWidget {
                         Align(
                           alignment: Alignment.centerRight,
                           child: TextButton(
-                            onPressed: () {},
+                            onPressed: () =>
+                                ctrl.showForgotPasswordDialog(context),
                             child: Text(
                               'Forgot password?',
                               style: TextStyle(
@@ -202,6 +203,34 @@ class LoginScreen extends StatelessWidget {
                                 ),
                         ),
                       ),
+                      // Resend verification email — shown only after a
+                      // login attempt is blocked by unverified email.
+                      if (ctrl.showResendButton) ...[
+                        const SizedBox(height: 12),
+                        SizedBox(
+                          width: double.infinity,
+                          height: 48,
+                          child: OutlinedButton(
+                            onPressed: ctrl.isLoading
+                                ? null
+                                : () =>
+                                    ctrl.resendVerificationEmail(context),
+                            style: OutlinedButton.styleFrom(
+                              side: const BorderSide(
+                                  color: LightColors.primaryColor),
+                              shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(30)),
+                            ),
+                            child: const Text(
+                              'Resend Verification Email',
+                              style: TextStyle(
+                                color: LightColors.primaryColor,
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
                       const SizedBox(height: 40),
                       // Sign In في الأسفل
                       Center(

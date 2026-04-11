@@ -1,10 +1,9 @@
 import 'dart:io';
-import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_functions/cloud_functions.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:cargo/core/dataSource/remote_data/firebase_service.dart';
-import 'package:cargo/core/dataSource/local_data/preferences_manager.dart';
-import 'package:cargo/Features/Main/main_screen.dart';
+import 'package:cargo/Features/auth/email_otp_screen.dart';
 
 class SignUpController extends ChangeNotifier {
   final TextEditingController fullNameController = TextEditingController();
@@ -93,6 +92,15 @@ class SignUpController extends ChangeNotifier {
   }
 
   // ─── Handle Sign Up ───────────────────────────────────────────────────────
+  //
+  // Flow:
+  //   1. Validate form + terms + driving license
+  //   2. Check phone / national-ID duplicates (fast Firestore reads)
+  //   3. Call sendSignupOtp Cloud Function → OTP email is sent via Resend
+  //   4. Navigate to EmailOtpScreen
+  //
+  // The Firebase Auth user is created ONLY after the user verifies the OTP
+  // on the next screen (handled by EmailOtpController).
 
   Future<void> handleSignUp(
       BuildContext context, GlobalKey<FormState> formKey) async {
@@ -112,13 +120,11 @@ class SignUpController extends ChangeNotifier {
     notifyListeners();
 
     try {
-      // ─── Check duplicates ─────────────────────────────────────────────
+      // ─── Duplicate checks (fail fast before sending OTP) ──────────────
       final phoneExists = await FirebaseService()
           .isPhoneExists(phoneController.text.trim());
       if (phoneExists) {
         _showError(context, 'This phone number is already registered');
-        _isLoading = false;
-        notifyListeners();
         return;
       }
 
@@ -126,52 +132,42 @@ class SignUpController extends ChangeNotifier {
           .isNationalIdExists(nationalIdController.text.trim());
       if (nationalIdExists) {
         _showError(context, 'This national ID is already registered');
-        _isLoading = false;
-        notifyListeners();
         return;
       }
 
-      // ─── Create Auth account ──────────────────────────────────────────
-      final User? user = await FirebaseService().signUp(
-        email: emailController.text.trim(),
-        password: passwordController.text.trim(),
-        fullName: fullNameController.text.trim(),
-        phone: phoneController.text.trim(),
-        nationalId: nationalIdController.text.trim(),
-      );
+      // ─── Send OTP via Cloud Function (Resend) ─────────────────────────
+      print('[SignUpController] sending signup OTP to ${emailController.text.trim()}');
+      await FirebaseService().sendSignupOtp(emailController.text.trim());
+      print('[SignUpController] OTP sent, navigating to EmailOtpScreen');
 
-      if (user == null) {
-        _showError(context, 'Sign up failed');
-        _isLoading = false;
-        notifyListeners();
-        return;
-      }
-
-      // ─── Upload driving license ───────────────────────────────────────
-      final licenseUrl = await FirebaseService().uploadDrivingLicense(
-        uid: user.uid,
-        imageFile: _licenseFile!,
-      );
-
-      // ─── Update Firestore with license URL ────────────────────────────
-      await FirebaseService().updateUserLicenseUrl(
-        uid: user.uid,
-        licenseUrl: licenseUrl,
-      );
-
-      await PreferencesManager().setBool('isLoggedIn', true);
+      // ─── Navigate to OTP verification screen ─────────────────────────
       if (context.mounted) {
-        Navigator.pushReplacement(
+        Navigator.push(
           context,
-          MaterialPageRoute(builder: (_) => const MainScreen()),
+          MaterialPageRoute(
+            builder: (_) => EmailOtpScreen(
+              email: emailController.text.trim(),
+              password: passwordController.text.trim(),
+              fullName: fullNameController.text.trim(),
+              phone: phoneController.text.trim(),
+              nationalId: nationalIdController.text.trim(),
+              licenseFile: _licenseFile!,
+            ),
+          ),
         );
       }
     } catch (e) {
-      _showError(context, 'Sign up failed: ${e.toString()}');
+      print('[SignUpController] handleSignUp error: $e');
+      _showError(context, _extractError(e));
     } finally {
       _isLoading = false;
       notifyListeners();
     }
+  }
+
+  String _extractError(Object e) {
+    if (e is FirebaseFunctionsException) return e.message ?? e.code;
+    return e.toString();
   }
 
   void _showError(BuildContext context, String msg) {
