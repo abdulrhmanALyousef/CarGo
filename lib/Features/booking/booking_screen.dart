@@ -3,7 +3,7 @@ import 'package:provider/provider.dart';
 import 'package:cargo/models/car_model.dart';
 import 'package:cargo/Features/booking/booking_controller.dart';
 import 'package:cargo/Features/auth/login_screen.dart';
-import 'package:cargo/services/services_screen.dart';
+import 'package:cargo/Features/Main/main_screen.dart';
 import 'package:cargo/core/theme/light_color.dart';
 
 class BookingScreen extends StatelessWidget {
@@ -400,11 +400,18 @@ class BookingScreen extends StatelessWidget {
                   : () async {
                       final success = await ctrl.createBooking(context);
                       if (success && context.mounted) {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (_) => const ServicesScreen(),
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                            content: Text(
+                              'Booking completed successfully! You can now contact the car owner.',
+                            ),
+                            duration: Duration(seconds: 4),
                           ),
+                        );
+                        Navigator.pushAndRemoveUntil(
+                          context,
+                          MaterialPageRoute(builder: (_) => const MainScreen()),
+                          (_) => false,
                         );
                       }
                     },
