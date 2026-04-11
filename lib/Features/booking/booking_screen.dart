@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:table_calendar/table_calendar.dart';
 import 'package:cargo/models/car_model.dart';
 import 'package:cargo/Features/booking/booking_controller.dart';
 import 'package:cargo/Features/auth/login_screen.dart';
@@ -28,10 +29,6 @@ class BookingScreen extends StatelessWidget {
                 onPressed: () => Navigator.pop(context),
               ),
             ),
-            // ── Auth guard ────────────────────────────────────────────────
-            // Mirrors the pattern used in HomeScreen (FirebaseService().isUserLoggedIn()).
-            // Prevents the user from reaching any booking UI — and avoids
-            // PERMISSION_DENIED from Firestore — when not logged in.
             body: ctrl.isAuthenticated
                 ? _buildBookingBody(context, ctrl)
                 : _buildLoginRequired(context),
@@ -49,54 +46,43 @@ class BookingScreen extends StatelessWidget {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            const Icon(
-              Icons.lock_outline,
-              size: 64,
-              color: LightColors.primaryColor,
-            ),
+            const Icon(Icons.lock_outline,
+                size: 64, color: LightColors.primaryColor),
             const SizedBox(height: 20),
             const Text(
               'Login Required',
               style: TextStyle(
-                fontSize: 20,
-                fontWeight: FontWeight.w700,
-                color: LightColors.textColor,
-              ),
+                  fontSize: 20,
+                  fontWeight: FontWeight.w700,
+                  color: LightColors.textColor),
             ),
             const SizedBox(height: 8),
             Text(
               'You need to be logged in to book a car.',
               textAlign: TextAlign.center,
               style: TextStyle(
-                fontSize: 14,
-                color: LightColors.textColor.withOpacity(0.5),
-              ),
+                  fontSize: 14,
+                  color: LightColors.textColor.withOpacity(0.5)),
             ),
             const SizedBox(height: 28),
             SizedBox(
               width: double.infinity,
               child: ElevatedButton(
-                onPressed: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(builder: (_) => const LoginScreen()),
-                  );
-                },
+                onPressed: () => Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => const LoginScreen()),
+                ),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: LightColors.primaryColor,
                   shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(14),
-                  ),
+                      borderRadius: BorderRadius.circular(14)),
                   padding: const EdgeInsets.symmetric(vertical: 16),
                 ),
-                child: const Text(
-                  'Log In',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontWeight: FontWeight.w600,
-                    fontSize: 16,
-                  ),
-                ),
+                child: const Text('Log In',
+                    style: TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.w600,
+                        fontSize: 16)),
               ),
             ),
           ],
@@ -136,18 +122,14 @@ class BookingScreen extends StatelessWidget {
                       const SizedBox(height: 4),
                       Row(
                         children: [
-                          const Icon(
-                            Icons.location_on,
-                            size: 13,
-                            color: LightColors.primaryColor,
-                          ),
+                          const Icon(Icons.location_on,
+                              size: 13, color: LightColors.primaryColor),
                           const SizedBox(width: 2),
                           Text(
                             car.location,
                             style: TextStyle(
-                              fontSize: 13,
-                              color: LightColors.textColor.withOpacity(0.5),
-                            ),
+                                fontSize: 13,
+                                color: LightColors.textColor.withOpacity(0.5)),
                           ),
                         ],
                       ),
@@ -168,9 +150,8 @@ class BookingScreen extends StatelessWidget {
                       TextSpan(
                         text: '/day',
                         style: TextStyle(
-                          fontSize: 12,
-                          color: LightColors.textColor.withOpacity(0.5),
-                        ),
+                            fontSize: 12,
+                            color: LightColors.textColor.withOpacity(0.5)),
                       ),
                     ],
                   ),
@@ -193,82 +174,68 @@ class BookingScreen extends StatelessWidget {
 
           const SizedBox(height: 12),
 
-          // ── Date & Time Widget (same style as SearchWidget) ────────────
+          // ── Inline Calendar ────────────────────────────────────────────
+          _buildInlineCalendar(context, ctrl),
+
+          const SizedBox(height: 12),
+
+          // ── Selected Dates + Time Picker ───────────────────────────────
+          // CFCFCF container matching SearchWidget style.
+          // Date rows are display-only (set via the calendar above).
+          // Only the time row is tappable.
           Container(
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
               color: const Color(0xFFCFCFCF),
               borderRadius: BorderRadius.circular(16),
-              border: Border.all(
-                color: const Color(0xFF9E9E9E),
-                width: 1.5,
-              ),
+              border: Border.all(color: const Color(0xFF9E9E9E), width: 1.5),
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // Pick Up Date
-                const Text(
-                  'Pick Up Date',
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: LightColors.textColor,
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
+                // Pick Up Date — display only
+                const Text('Pick Up Date',
+                    style: TextStyle(
+                        fontSize: 12,
+                        color: LightColors.textColor,
+                        fontWeight: FontWeight.w500)),
                 const SizedBox(height: 6),
-                GestureDetector(
-                  onTap: () => ctrl.openDatePicker(context),
-                  child: _buildPickerRow(
-                    icon: Icons.calendar_month,
-                    text: ctrl.startDateText,
-                  ),
-                ),
+                _buildPickerRow(
+                    icon: Icons.calendar_month, text: ctrl.startDateText),
 
                 const SizedBox(height: 10),
 
-                // Drop Off Date
-                const Text(
-                  'Drop Off Date',
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: LightColors.textColor,
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
+                // Drop Off Date — display only
+                const Text('Drop Off Date',
+                    style: TextStyle(
+                        fontSize: 12,
+                        color: LightColors.textColor,
+                        fontWeight: FontWeight.w500)),
                 const SizedBox(height: 6),
-                GestureDetector(
-                  onTap: () => ctrl.openDatePicker(context),
-                  child: _buildPickerRow(
-                    icon: Icons.calendar_month,
-                    text: ctrl.endDateText,
-                  ),
-                ),
+                _buildPickerRow(
+                    icon: Icons.calendar_month, text: ctrl.endDateText),
 
                 const SizedBox(height: 10),
 
-                // Pick Up Time
-                const Text(
-                  'Pick Up Time',
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: LightColors.textColor,
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
+                // Pick Up Time — tappable
+                const Text('Pick Up Time',
+                    style: TextStyle(
+                        fontSize: 12,
+                        color: LightColors.textColor,
+                        fontWeight: FontWeight.w500)),
                 const SizedBox(height: 6),
                 GestureDetector(
-                  onTap: () => ctrl.openTimePicker(context),
+                  onTap: () => context
+                      .read<BookingController>()
+                      .openTimePicker(context),
                   child: _buildPickerRow(
-                    icon: Icons.access_time,
-                    text: ctrl.pickupTimeText,
-                  ),
+                      icon: Icons.access_time, text: ctrl.pickupTimeText),
                 ),
               ],
             ),
           ),
 
-          // ── Availability Window Info ────────────────────────────────────
+          // ── Availability Window Banner ─────────────────────────────────
           if (car.availableFrom != null || car.availableTo != null) ...[
             const SizedBox(height: 12),
             Container(
@@ -278,24 +245,18 @@ class BookingScreen extends StatelessWidget {
                 color: LightColors.primaryColor.withOpacity(0.08),
                 borderRadius: BorderRadius.circular(8),
                 border: Border.all(
-                  color: LightColors.primaryColor.withOpacity(0.2),
-                ),
+                    color: LightColors.primaryColor.withOpacity(0.2)),
               ),
               child: Row(
                 children: [
-                  const Icon(
-                    Icons.info_outline,
-                    color: LightColors.primaryColor,
-                    size: 16,
-                  ),
+                  const Icon(Icons.info_outline,
+                      color: LightColors.primaryColor, size: 16),
                   const SizedBox(width: 8),
                   Flexible(
                     child: Text(
                       _availabilityText(car),
                       style: const TextStyle(
-                        fontSize: 12,
-                        color: LightColors.primaryColor,
-                      ),
+                          fontSize: 12, color: LightColors.primaryColor),
                     ),
                   ),
                 ],
@@ -304,13 +265,6 @@ class BookingScreen extends StatelessWidget {
           ],
 
           // ── Firestore Rules Error ──────────────────────────────────────
-          // Shown when Firestore returns PERMISSION_DENIED even though the
-          // user is authenticated. The Security Rules are blocking reads on
-          // the bookings collection because they check resource.data.userId
-          // instead of just request.auth != null.
-          // Fix: Firebase Console → Firestore → Rules →
-          //   allow read: if request.auth != null;
-          //   allow write: if request.auth != null;
           if (ctrl.firestoreRulesError) ...[
             const SizedBox(height: 12),
             Container(
@@ -328,16 +282,14 @@ class BookingScreen extends StatelessWidget {
                   const SizedBox(width: 10),
                   Flexible(
                     child: Text(
-                      'Server access denied. The Firestore Security Rules must '
-                      'allow authenticated users to read all bookings.\n'
-                      'Fix in Firebase Console → Firestore → Rules:\n'
+                      'Server access denied. Fix in Firebase Console → '
+                      'Firestore → Rules:\n'
                       'allow read: if request.auth != null;\n'
                       'allow write: if request.auth != null;',
                       style: TextStyle(
-                        fontSize: 12,
-                        color: Colors.red.shade800,
-                        height: 1.5,
-                      ),
+                          fontSize: 12,
+                          color: Colors.red.shade800,
+                          height: 1.5),
                     ),
                   ),
                 ],
@@ -345,13 +297,11 @@ class BookingScreen extends StatelessWidget {
             ),
           ],
 
-          // ── Error ──────────────────────────────────────────────────────
+          // ── Validation Error ───────────────────────────────────────────
           if (ctrl.error != null && !ctrl.firestoreRulesError) ...[
             const SizedBox(height: 10),
-            Text(
-              ctrl.error!,
-              style: const TextStyle(fontSize: 13, color: Colors.red),
-            ),
+            Text(ctrl.error!,
+                style: const TextStyle(fontSize: 13, color: Colors.red)),
           ],
 
           const SizedBox(height: 24),
@@ -361,22 +311,21 @@ class BookingScreen extends StatelessWidget {
             const Text(
               'Price Summary',
               style: TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.w700,
-                color: LightColors.textColor,
-              ),
+                  fontSize: 16,
+                  fontWeight: FontWeight.w700,
+                  color: LightColors.textColor),
             ),
             const SizedBox(height: 12),
             Container(
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(16),
-              ),
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(16)),
               child: Column(
                 children: [
                   _buildPriceRow(
-                    'SAR ${car.pricePerDay.toStringAsFixed(0)} × ${ctrl.rentalDays} day${ctrl.rentalDays > 1 ? 's' : ''}',
+                    'SAR ${car.pricePerDay.toStringAsFixed(0)} × '
+                    '${ctrl.rentalDays} day${ctrl.rentalDays > 1 ? 's' : ''}',
                     'SAR ${ctrl.totalPrice.toStringAsFixed(0)}',
                   ),
                   const Divider(height: 24),
@@ -398,19 +347,21 @@ class BookingScreen extends StatelessWidget {
               onPressed: ctrl.isLoading
                   ? null
                   : () async {
-                      final success = await ctrl.createBooking(context);
+                      final success = await context
+                          .read<BookingController>()
+                          .createBooking(context);
                       if (success && context.mounted) {
                         ScaffoldMessenger.of(context).showSnackBar(
                           const SnackBar(
                             content: Text(
-                              'Booking completed successfully! You can now contact the car owner.',
-                            ),
+                                'Booking completed! You can now contact the car owner.'),
                             duration: Duration(seconds: 4),
                           ),
                         );
                         Navigator.pushAndRemoveUntil(
                           context,
-                          MaterialPageRoute(builder: (_) => const MainScreen()),
+                          MaterialPageRoute(
+                              builder: (_) => const MainScreen()),
                           (_) => false,
                         );
                       }
@@ -418,8 +369,7 @@ class BookingScreen extends StatelessWidget {
               style: ElevatedButton.styleFrom(
                 backgroundColor: LightColors.primaryColor,
                 shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(14),
-                ),
+                    borderRadius: BorderRadius.circular(14)),
                 padding: const EdgeInsets.symmetric(vertical: 16),
               ),
               child: ctrl.isLoading
@@ -427,24 +377,206 @@ class BookingScreen extends StatelessWidget {
                       height: 20,
                       width: 20,
                       child: CircularProgressIndicator(
-                        color: Colors.white,
-                        strokeWidth: 2,
-                      ),
-                    )
-                  : const Text(
-                      'Continue',
+                          color: Colors.white, strokeWidth: 2))
+                  : const Text('Continue',
                       style: TextStyle(
-                        color: Colors.white,
-                        fontWeight: FontWeight.w600,
-                        fontSize: 16,
-                      ),
-                    ),
+                          color: Colors.white,
+                          fontWeight: FontWeight.w600,
+                          fontSize: 16)),
             ),
           ),
 
           const SizedBox(height: 24),
         ],
       ),
+    );
+  }
+
+  // ── Inline Calendar ───────────────────────────────────────────────────────
+  //
+  // TableCalendar configuration:
+  //
+  //   firstDay / lastDay
+  //     Hard boundaries — the user cannot navigate past these months.
+  //     Set to max(today, availableFrom) → availableTo so the calendar
+  //     only ever shows the valid booking window.
+  //
+  //   enabledDayPredicate
+  //     Within [firstDay, lastDay], returns false for booked days.
+  //     Those days are rendered greyed out and cannot be tapped.
+  //
+  //   rangeSelectionMode: RangeSelectionMode.enforced
+  //     Every tap starts or completes a range. The calendar always
+  //     collects start → end in two taps.
+  //
+  //   onRangeSelected (controller callback)
+  //     Validates that the full range contains no booked days and updates
+  //     _startDate / _endDate (or rejects and clears _endDate with an error).
+  //
+  Widget _buildInlineCalendar(BuildContext context, BookingController ctrl) {
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: ctrl.isLoadingAvailability
+          ? const Padding(
+              padding: EdgeInsets.symmetric(vertical: 48),
+              child: Center(
+                child: CircularProgressIndicator(
+                  color: LightColors.primaryColor,
+                  strokeWidth: 2,
+                ),
+              ),
+            )
+          : Column(
+              children: [
+                TableCalendar(
+                  // ── Bounds ──────────────────────────────────────────────
+                  // Layer 1: no month outside this range is reachable.
+                  firstDay: ctrl.calendarFirstDay,
+                  lastDay: ctrl.calendarLastDay,
+                  focusedDay: ctrl.focusedDay,
+
+                  // ── Range selection ──────────────────────────────────────
+                  rangeSelectionMode: RangeSelectionMode.enforced,
+                  rangeStartDay: ctrl.startDate,
+                  rangeEndDay: ctrl.endDate,
+                  onRangeSelected: (start, end, focused) => context
+                      .read<BookingController>()
+                      .onRangeSelected(start, end, focused),
+
+                  // ── Disabled days (booked) ───────────────────────────────
+                  // Layer 2: within bounds, booked days are greyed out and
+                  // cannot be tapped.
+                  enabledDayPredicate: ctrl.isDayEnabled,
+
+                  // ── Page / month navigation ──────────────────────────────
+                  onPageChanged: (focused) =>
+                      context.read<BookingController>().onPageChanged(focused),
+
+                  // ── Format: month view only, no toggle ──────────────────
+                  calendarFormat: CalendarFormat.month,
+                  availableCalendarFormats: const {
+                    CalendarFormat.month: 'Month',
+                  },
+
+                  // ── Header ───────────────────────────────────────────────
+                  headerStyle: const HeaderStyle(
+                    formatButtonVisible: false,
+                    titleCentered: true,
+                    titleTextStyle: TextStyle(
+                      fontWeight: FontWeight.w700,
+                      fontSize: 15,
+                      color: LightColors.textColor,
+                    ),
+                    leftChevronIcon: Icon(
+                      Icons.chevron_left,
+                      color: LightColors.textColor,
+                    ),
+                    rightChevronIcon: Icon(
+                      Icons.chevron_right,
+                      color: LightColors.textColor,
+                    ),
+                  ),
+
+                  // ── Days-of-week header ──────────────────────────────────
+                  daysOfWeekStyle: const DaysOfWeekStyle(
+                    weekdayStyle: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                        color: Color(0xFF888888)),
+                    weekendStyle: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                        color: Color(0xFF888888)),
+                  ),
+
+                  // ── Day cell styling ─────────────────────────────────────
+                  calendarStyle: CalendarStyle(
+                    // Range endpoints: filled green circle + white text.
+                    rangeStartDecoration: const BoxDecoration(
+                      color: LightColors.primaryColor,
+                      shape: BoxShape.circle,
+                    ),
+                    rangeEndDecoration: const BoxDecoration(
+                      color: LightColors.primaryColor,
+                      shape: BoxShape.circle,
+                    ),
+                    rangeStartTextStyle: const TextStyle(
+                        color: Colors.white, fontWeight: FontWeight.w700),
+                    rangeEndTextStyle: const TextStyle(
+                        color: Colors.white, fontWeight: FontWeight.w700),
+
+                    // Days between start and end: light green tint.
+                    rangeHighlightColor:
+                        LightColors.primaryColor.withOpacity(0.15),
+                    withinRangeTextStyle: const TextStyle(
+                        color: LightColors.primaryColor),
+                    withinRangeDecoration: const BoxDecoration(
+                        color: Colors.transparent),
+
+                    // Today: subtle green ring, not filled.
+                    todayDecoration: BoxDecoration(
+                      border: Border.all(
+                          color: LightColors.primaryColor, width: 1.5),
+                      shape: BoxShape.circle,
+                    ),
+                    todayTextStyle:
+                        const TextStyle(color: LightColors.primaryColor),
+
+                    // Disabled (booked or before firstDay / after lastDay):
+                    // grey text so it's clearly not selectable.
+                    disabledTextStyle: const TextStyle(
+                        color: Color(0xFFCCCCCC),
+                        decoration: TextDecoration.lineThrough),
+
+                    // Days outside the current month in the grid.
+                    outsideTextStyle:
+                        const TextStyle(color: Color(0xFFDDDDDD)),
+
+                    // Normal selectable days.
+                    defaultTextStyle:
+                        const TextStyle(color: LightColors.textColor),
+                    weekendTextStyle:
+                        const TextStyle(color: LightColors.textColor),
+                  ),
+                ),
+
+                // ── Legend ─────────────────────────────────────────────────
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 0, 16, 14),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      _legendDot(LightColors.primaryColor, 'Selected'),
+                      const SizedBox(width: 16),
+                      _legendDot(
+                          LightColors.primaryColor.withOpacity(0.20), 'Range'),
+                      const SizedBox(width: 16),
+                      _legendDot(const Color(0xFFCCCCCC), 'Unavailable'),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+    );
+  }
+
+  Widget _legendDot(Color color, String label) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Container(
+          width: 11,
+          height: 11,
+          decoration:
+              BoxDecoration(color: color, shape: BoxShape.circle),
+        ),
+        const SizedBox(width: 5),
+        Text(label,
+            style: const TextStyle(fontSize: 11, color: Color(0xFF666666))),
+      ],
     );
   }
 
@@ -462,14 +594,11 @@ class BookingScreen extends StatelessWidget {
         children: [
           Icon(icon, color: const Color(0xFF555555), size: 16),
           const SizedBox(width: 8),
-          Text(
-            text,
-            style: const TextStyle(
-              fontSize: 14,
-              fontWeight: FontWeight.w600,
-              color: LightColors.textColor,
-            ),
-          ),
+          Text(text,
+              style: const TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
+                  color: LightColors.textColor)),
         ],
       ),
     );
@@ -485,12 +614,9 @@ class BookingScreen extends StatelessWidget {
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
         Text(label, style: style),
-        Text(
-          value,
-          style: style.copyWith(
-            color: bold ? LightColors.primaryColor : null,
-          ),
-        ),
+        Text(value,
+            style: style.copyWith(
+                color: bold ? LightColors.primaryColor : null)),
       ],
     );
   }

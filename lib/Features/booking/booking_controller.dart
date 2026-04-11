@@ -9,41 +9,44 @@ import 'package:cargo/core/theme/light_color.dart';
 import 'package:cargo/services/stripe_service.dart';
 
 // ════════════════════════════════════════════════════════════════════════════
-// FIRESTORE PERMISSION_DENIED — WHY IT HAPPENS AND HOW THIS CONTROLLER HANDLES IT
+// INLINE CALENDAR STRATEGY
 // ════════════════════════════════════════════════════════════════════════════
 //
-// The overlap check queries the `bookings` collection filtered by carId:
+// TableCalendar (table_calendar package) is used as an always-visible
+// inline widget. Three layers enforce the date constraints:
 //
-//   _firestore.collection('bookings').where('carId', isEqualTo: car.id).get()
+//  Layer 1 — firstDay / lastDay props
+//    The calendar cannot navigate to months outside these bounds.
+//    Set to max(today, availableFrom) → availableTo so the user can
+//    never even see months outside the window.
 //
-// This query returns booking documents that belong to OTHER users.
-// Firestore evaluates its Security Rules PER DOCUMENT against each result.
+//  Layer 2 — enabledDayPredicate
+//    Within [firstDay, lastDay], any day for which this returns false is
+//    greyed out and cannot be tapped. Used to block already-booked days.
 //
-// If the Firestore rules say:
-//   allow read: if request.auth.uid == resource.data.userId;
-//
-// ...then reading a booking that belongs to a different user ALWAYS fails,
-// even when the requesting user is fully authenticated. The check
-// request.auth.uid == resource.data.userId compares the REQUESTER'S uid
-// against the DOCUMENT OWNER'S uid. For other users' bookings these will
-// never match — Firestore returns PERMISSION_DENIED.
-//
-// This is NOT a bug in the Dart code. The code is correct.
-// The required Firestore rule for the bookings collection is:
-//
-//   match /bookings/{bookingId} {
-//     allow read:   if request.auth != null;   ← any authenticated user
-//     allow write:  if request.auth != null;   ← any authenticated user
-//   }
-//
-// Set this in: Firebase Console → Firestore Database → Rules
-// See project_context.dart Section 7 for the full recommended ruleset.
+//  Layer 3 — onRangeSelected validation + _validate()
+//    Even though the two endpoints must each pass enabledDayPredicate, a
+//    range between them can still span a booked day in the middle (because
+//    only the tapped days are checked by the predicate). onRangeSelected
+//    scans the full range and rejects it if any day is booked.
+//    _validate() repeats this scan before createBooking() so the booking
+//    is safe regardless of how the state was set.
 // ════════════════════════════════════════════════════════════════════════════
 
 class BookingController extends ChangeNotifier {
   final Car car;
 
-  BookingController({required this.car});
+  BookingController({required this.car}) {
+    // Initialise the calendar on the first selectable month.
+    // If availableFrom is in the future show that month; otherwise today.
+    final today = _dateOnly(DateTime.now());
+    final fromDay = car.availableFrom != null
+        ? _dateOnly(car.availableFrom!)
+        : today;
+    _focusedDay = fromDay.isBefore(today) ? today : fromDay;
+
+    loadAvailability(); // fire-and-forget; _isLoadingAvailability = true until done
+  }
 
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   final StripeService _stripe = StripeService();
@@ -54,28 +57,28 @@ class BookingController extends ChangeNotifier {
   TimeOfDay? _pickupTime;
   bool _isLoading = false;
   String? _error;
-
-  // Separate flag set when Firestore returns PERMISSION_DENIED.
-  // Used by BookingScreen to show a persistent inline banner explaining
-  // that the issue is the Firestore Security Rules, not the user's account.
   bool _firestoreRulesError = false;
 
+  // Calendar focused day — drives which month the calendar displays.
+  late DateTime _focusedDay;
+
+  // Starts true so the first build shows a loader while Firestore is fetched.
+  bool _isLoadingAvailability = true;
+
+  // Every individual day that is occupied by an active booking for this car.
+  Set<DateTime> _bookedDates = {};
+
+  // ── Getters ──────────────────────────────────────────────────────────────
   DateTime? get startDate => _startDate;
   DateTime? get endDate => _endDate;
   TimeOfDay? get pickupTime => _pickupTime;
   bool get isLoading => _isLoading;
   String? get error => _error;
   bool get firestoreRulesError => _firestoreRulesError;
+  bool get isLoadingAvailability => _isLoadingAvailability;
+  DateTime get focusedDay => _focusedDay;
 
   // ── Authentication Guard ─────────────────────────────────────────────────
-  // Checked before every Firestore operation.
-  //
-  // Returning false here means no request is ever sent to Firestore.
-  // Returning true means the user has a local auth session — but the
-  // Firestore Security Rules may still deny the request server-side
-  // (see the block comment at the top of this file).
-  //
-  // Mirrors FirebaseService.isUserLoggedIn() used across the project.
   bool get isAuthenticated => FirebaseAuth.instance.currentUser != null;
 
   // ── Text Helpers ─────────────────────────────────────────────────────────
@@ -105,39 +108,122 @@ class BookingController extends ChangeNotifier {
 
   double get totalPrice => rentalDays * car.pricePerDay;
 
-  // ── Date Picker ──────────────────────────────────────────────────────────
-  // constrained to car.availableFrom / car.availableTo so the user cannot
-  // pick dates outside the owner-defined availability window.
-  Future<void> openDatePicker(BuildContext context) async {
-    final DateTime firstDate = car.availableFrom ?? DateTime.now();
-    final DateTime lastDate =
-        car.availableTo ?? DateTime.now().add(const Duration(days: 365));
+  // ── Date Helpers ─────────────────────────────────────────────────────────
+  DateTime _dateOnly(DateTime d) => DateTime(d.year, d.month, d.day);
 
-    final result = await showDateRangePicker(
-      context: context,
-      firstDate: firstDate,
-      lastDate: lastDate,
-      initialDateRange: _startDate != null && _endDate != null
-          ? DateTimeRange(start: _startDate!, end: _endDate!)
-          : null,
-      builder: (ctx, child) => Theme(
-        data: Theme.of(ctx).copyWith(
-          colorScheme: const ColorScheme.light(
-            primary: LightColors.primaryColor,
-            onPrimary: Colors.white,
-            surface: Color(0xFFD4D4D4),
-          ),
-        ),
-        child: child!,
-      ),
-    );
+  // ── Calendar Boundary Props ──────────────────────────────────────────────
+  // These are passed directly to TableCalendar's firstDay / lastDay so the
+  // widget itself enforces the bounds without any extra logic.
 
-    if (result != null) {
-      _startDate = result.start;
-      _endDate = result.end;
-      _error = null;
+  // Earliest selectable day: later of today and availableFrom.
+  // Prevents booking in the past even if availableFrom is historical.
+  DateTime get calendarFirstDay {
+    final today = _dateOnly(DateTime.now());
+    if (car.availableFrom == null) return today;
+    final from = _dateOnly(car.availableFrom!);
+    return from.isBefore(today) ? today : from;
+  }
+
+  // Latest selectable day: availableTo or 1 year out as a safe fallback.
+  DateTime get calendarLastDay {
+    if (car.availableTo != null) return _dateOnly(car.availableTo!);
+    return _dateOnly(DateTime.now()).add(const Duration(days: 365));
+  }
+
+  // ── Day Predicates ───────────────────────────────────────────────────────
+
+  // Passed to TableCalendar.enabledDayPredicate.
+  // Within [firstDay, lastDay], any day for which this returns false is
+  // greyed out and cannot be tapped — used to block already-booked days.
+  bool isDayEnabled(DateTime day) => !isBooked(day);
+
+  // Returns true when [day] is occupied by an existing booking.
+  bool isBooked(DateTime day) => _bookedDates.contains(_dateOnly(day));
+
+  // ── Availability Loader ──────────────────────────────────────────────────
+  // Fetches all active bookings for this car and expands each range into
+  // individual days stored in _bookedDates. These days are then blocked
+  // via enabledDayPredicate so the calendar greys them out automatically.
+  Future<void> loadAvailability() async {
+    try {
+      final snapshot = await _firestore
+          .collection('bookings')
+          .where('carId', isEqualTo: car.id)
+          .get();
+
+      final booked = <DateTime>{};
+      for (final doc in snapshot.docs) {
+        final data = doc.data();
+        if ((data['status'] as String? ?? '') == 'cancelled') continue;
+        final start = (data['startDate'] as Timestamp).toDate();
+        final end = (data['endDate'] as Timestamp).toDate();
+        DateTime cursor = _dateOnly(start);
+        final endOnly = _dateOnly(end);
+        while (!cursor.isAfter(endOnly)) {
+          booked.add(cursor);
+          cursor = cursor.add(const Duration(days: 1));
+        }
+      }
+      _bookedDates = booked;
+    } catch (e) {
+      print('BookingController.loadAvailability error: $e');
+      _bookedDates = {};
+    } finally {
+      _isLoadingAvailability = false;
       notifyListeners();
     }
+  }
+
+  // ── Calendar Callbacks ───────────────────────────────────────────────────
+
+  // Called by TableCalendar when the user swipes or taps to a new month.
+  void onPageChanged(DateTime focusedDay) {
+    _focusedDay = focusedDay;
+    // No notifyListeners — focusedDay change alone doesn't need a UI rebuild.
+    // TableCalendar manages its own page scroll internally.
+  }
+
+  // Called by TableCalendar on every range interaction:
+  //   • First tap  → start = tapped, end = null
+  //   • Second tap → start = first, end = second  (or restart if before first)
+  //
+  // When end is non-null we scan the full range for booked days.
+  // If any are found we reject the end date (clear it) and show an error.
+  // The calendar re-renders with rangeEndDay = null, returning to
+  // "start-only" state so the user can re-tap a valid end date.
+  void onRangeSelected(DateTime? start, DateTime? end, DateTime focusedDay) {
+    _focusedDay = focusedDay;
+    _startDate = start != null ? _dateOnly(start) : null;
+
+    if (end == null) {
+      // First tap — just set the start.
+      _endDate = null;
+      _error = null;
+      notifyListeners();
+      return;
+    }
+
+    final endOnly = _dateOnly(end);
+
+    // Scan the range for booked days.
+    // enabledDayPredicate blocks tapping a booked endpoint, but a booked day
+    // can still sit between a valid start and a valid end.
+    DateTime cursor = _startDate!;
+    while (!cursor.isAfter(endOnly)) {
+      if (isBooked(cursor)) {
+        _endDate = null;
+        _error =
+            'Your selected range includes days that are already booked. '
+            'Please choose dates that do not overlap with existing bookings.';
+        notifyListeners();
+        return;
+      }
+      cursor = cursor.add(const Duration(days: 1));
+    }
+
+    _endDate = endOnly;
+    _error = null;
+    notifyListeners();
   }
 
   // ── Time Picker ──────────────────────────────────────────────────────────
@@ -166,37 +252,40 @@ class BookingController extends ChangeNotifier {
   // ── Local Validation (no network) ────────────────────────────────────────
   String? _validate() {
     if (_startDate == null || _endDate == null) {
-      return 'Please select pick-up and drop-off dates';
+      return 'Please select pick-up and drop-off dates on the calendar';
     }
     if (_pickupTime == null) {
       return 'Please select a pick-up time';
     }
-    if (_endDate!.isBefore(_startDate!)) {
+    if (!_endDate!.isAfter(_startDate!)) {
       return 'Drop-off date must be after pick-up date';
     }
+    // Window enforcement — the calendar already blocks these via firstDay /
+    // lastDay, but _validate() is the last line of defence before Firestore.
     if (car.availableFrom != null &&
-        _startDate!.isBefore(car.availableFrom!)) {
+        _startDate!.isBefore(_dateOnly(car.availableFrom!))) {
       return 'Pick-up date must be on or after ${_fmtDate(car.availableFrom!)}';
     }
-    if (car.availableTo != null && _endDate!.isAfter(car.availableTo!)) {
+    if (car.availableTo != null &&
+        _endDate!.isAfter(_dateOnly(car.availableTo!))) {
       return 'Drop-off date must be on or before ${_fmtDate(car.availableTo!)}';
+    }
+    // Full range scan — catches booked days between start and end.
+    // onRangeSelected already rejects these, but the state could theoretically
+    // be set another way, so this guard stays.
+    DateTime cursor = _startDate!;
+    while (!cursor.isAfter(_endDate!)) {
+      if (isBooked(cursor)) {
+        return 'Your selected range includes days that are already booked';
+      }
+      cursor = cursor.add(const Duration(days: 1));
     }
     return null;
   }
 
   // ── Overlap Check (Firestore READ) ───────────────────────────────────────
-  // Queries ALL bookings for this car — including bookings owned by other users.
-  //
-  // This is why the Firestore rule CANNOT be:
-  //   allow read: if request.auth.uid == resource.data.userId;
-  //
-  // That rule only allows a user to read their OWN bookings. But to check
-  // availability, we need to read bookings from everyone who booked this car.
-  //
-  // The correct rule is:
-  //   allow read: if request.auth != null;
-  //
-  // This method is only ever called after isAuthenticated == true is confirmed.
+  // Queries ALL bookings for this car — including other users' bookings.
+  // Requires: allow read: if request.auth != null; in Firestore rules.
   Future<bool> _hasOverlap(DateTime start, DateTime end) async {
     final snapshot = await _firestore
         .collection('bookings')
@@ -205,90 +294,61 @@ class BookingController extends ChangeNotifier {
 
     for (final doc in snapshot.docs) {
       final data = doc.data();
-      final status = data['status'] as String? ?? '';
-
-      if (status == 'cancelled') continue;
-
+      if ((data['status'] as String? ?? '') == 'cancelled') continue;
       final existingStart = (data['startDate'] as Timestamp).toDate();
       final existingEnd = (data['endDate'] as Timestamp).toDate();
-
-      // Overlaps when: newStart <= existingEnd  AND  newEnd >= existingStart
       if (!start.isAfter(existingEnd) && !end.isBefore(existingStart)) {
         return true;
       }
     }
-
     return false;
   }
 
   // ── Create Booking ───────────────────────────────────────────────────────
-  // Fixed execution order — must not be changed:
-  //
-  //   Step 1 — isAuthenticated       No Firestore call if not logged in.
-  //   Step 2 — _validate()           Local checks only, zero network cost.
-  //   Step 3 — _hasOverlap()         Firestore READ. Safe: auth confirmed above.
-  //   Step 4 — _firestore.doc.set()  Firestore WRITE. Safe: auth confirmed above.
-  //
-  // FirebaseException is caught separately from generic Exception.
-  // A 'permission-denied' code sets _firestoreRulesError = true so the screen
-  // can show a persistent inline banner explaining the Firestore rules issue.
+  // Step 1 — isAuthenticated       stops if not logged in
+  // Step 2 — _validate()           local checks, zero network cost
+  // Step 3 — _hasOverlap()         Firestore READ (auth confirmed above)
+  // Step 4 — _stripe.verifyCard()  card verification
+  // Step 5 — _firestore.doc.set()  Firestore WRITE
   Future<bool> createBooking(BuildContext context) async {
-    // ── Step 1: Auth guard ────────────────────────────────────────────────
-    // If the user has no local session, we stop here. No Firestore call is
-    // made — the PERMISSION_DENIED error cannot come from the server because
-    // we never send a request.
     if (!isAuthenticated) {
       _error = 'You must be logged in to book a car';
       notifyListeners();
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(_error!)),
-      );
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text(_error!)));
       return false;
     }
 
-    // ── Step 2: Local validation ──────────────────────────────────────────
     final validationError = _validate();
     if (validationError != null) {
       _error = validationError;
       notifyListeners();
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(validationError)),
-      );
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text(validationError)));
       return false;
     }
 
-    // ── Steps 3–5: Overlap check → Stripe verification → Firestore write ────
     _isLoading = true;
     _firestoreRulesError = false;
     _error = null;
     notifyListeners();
 
     try {
-      // Step 3: Overlap check — reads all bookings for this car.
-      // Runs before Stripe so we don't open the payment sheet for taken dates.
       final overlaps = await _hasOverlap(_startDate!, _endDate!);
       if (overlaps) {
         _error = 'This car is already booked for the selected dates';
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(_error!)),
-        );
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text(_error!)));
         return false;
       }
 
-      // Step 4: Stripe card verification via SetupIntent.
-      // No charge is made — this only confirms the card is real and valid.
-      // Returns false if the user closes the sheet without completing.
       final cardVerified = await _stripe.verifyCard(context);
-      if (!cardVerified) {
-        // User cancelled — stop silently, no error shown.
-        return false;
-      }
+      if (!cardVerified) return false;
 
-      // Step 5: Write booking document (card confirmed valid).
       final currentUser = FirebaseAuth.instance.currentUser!;
       final docRef = _firestore.collection('bookings').doc();
 
-      final booking = Booking(
+      await docRef.set(Booking(
         bookingId: docRef.id,
         userId: currentUser.uid,
         carId: car.id,
@@ -298,47 +358,28 @@ class BookingController extends ChangeNotifier {
         totalPrice: totalPrice,
         status: 'pending',
         createdAt: DateTime.now(),
-      );
+      ).toMap());
 
-      await docRef.set(booking.toMap());
       return true;
-
     } on FirebaseException catch (e) {
       print('BookingController FirebaseException [${e.code}]: ${e.message}');
-
       if (e.code == 'permission-denied') {
-        // The user IS authenticated but Firestore Security Rules denied the
-        // request. The most common cause: the rules check
-        //   resource.data.userId == request.auth.uid
-        // which blocks reading OTHER users' bookings for the same car.
-        //
-        // Fix in Firebase Console → Firestore → Rules:
-        //   match /bookings/{bookingId} {
-        //     allow read:  if request.auth != null;
-        //     allow write: if request.auth != null;
-        //   }
         _firestoreRulesError = true;
         _error =
-            'Booking access was denied by the server. The Firestore Security '
-            'Rules must allow authenticated users to read all bookings. '
-            'Please update the rules in Firebase Console.';
+            'Booking access was denied by the server. Update Firestore rules: '
+            'allow read: if request.auth != null;';
       } else {
         _error = 'Failed to create booking. Please try again.';
       }
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(_error!)),
-      );
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text(_error!)));
       return false;
-
     } catch (e) {
       print('BookingController unexpected error: $e');
       _error = 'An unexpected error occurred. Please try again.';
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(_error!)),
-      );
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text(_error!)));
       return false;
-
     } finally {
       _isLoading = false;
       notifyListeners();
