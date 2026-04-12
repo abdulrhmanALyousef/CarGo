@@ -1,3 +1,5 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
+
 class Car {
   final String id;
   final bool available;
@@ -17,6 +19,8 @@ class Car {
   final int year;
   final String? ownerName;
   final String? ownerImage;
+  final DateTime? availableFrom;
+  final DateTime? availableTo;
 
   Car({
     required this.id,
@@ -37,6 +41,8 @@ class Car {
     required this.year,
     this.ownerName,
     this.ownerImage,
+    this.availableFrom,
+    this.availableTo,
   });
 
   factory Car.fromJson(Map<String, dynamic> json) {
@@ -61,6 +67,8 @@ class Car {
       year: (json['year'] as num?)?.toInt() ?? 0,
       ownerName: json['ownerName'] as String?,
       ownerImage: json['ownerImage'] as String?,
+      availableFrom: _parseDate(json['availableFrom']),
+      availableTo: _parseDate(json['availableTo']),
     );
   }
 
@@ -84,6 +92,27 @@ class Car {
       'year': year,
       'ownerName': ownerName,
       'ownerImage': ownerImage,
+      // Always write a Timestamp so any legacy String documents are
+      // overwritten with the correct type on the next save.
+      'availableFrom':
+          availableFrom != null ? Timestamp.fromDate(availableFrom!) : null,
+      'availableTo':
+          availableTo != null ? Timestamp.fromDate(availableTo!) : null,
     };
   }
+}
+
+// ── Date parsing helper ───────────────────────────────────────────────────────
+// Handles three possible shapes that Firestore might return for a date field:
+//
+//   Timestamp  →  the correct type; convert with .toDate()
+//   String     →  legacy format (e.g. "2026-08-01"); parse with DateTime.tryParse
+//   null/other →  field is missing or unknown type; return null
+//
+// Using a helper keeps fromJson readable and ensures the same logic applies
+// to both availableFrom and availableTo without duplication.
+DateTime? _parseDate(dynamic value) {
+  if (value is Timestamp) return value.toDate();
+  if (value is String) return DateTime.tryParse(value);
+  return null;
 }

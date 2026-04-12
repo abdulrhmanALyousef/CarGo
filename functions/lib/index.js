@@ -1,17 +1,19 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.verifySignupOtp = exports.sendSignupOtp = exports.resetPassword = exports.verifyOtp = exports.sendOtp = void 0;
+exports.createSetupIntent = exports.verifySignupOtp = exports.sendSignupOtp = exports.resetPassword = exports.verifyOtp = exports.sendOtp = void 0;
 const https_1 = require("firebase-functions/v2/https");
 const v2_1 = require("firebase-functions/v2");
 const params_1 = require("firebase-functions/params");
 const admin = require("firebase-admin");
 const resend_1 = require("resend");
 const crypto = require("crypto");
+const stripe_1 = require("stripe");
 // All functions in this file will be deployed to us-central1.
 (0, v2_1.setGlobalOptions)({ region: 'us-central1' });
 admin.initializeApp();
 const db = admin.firestore();
 const resendKey = (0, params_1.defineSecret)('RESEND_API_KEY');
+const stripeKey = (0, params_1.defineSecret)('STRIPE_SECRET_KEY');
 // ── Logo URL ──────────────────────────────────────────────────────────────────
 //
 // The image must be publicly hosted — email clients cannot load local files.
@@ -458,5 +460,27 @@ exports.verifySignupOtp = (0, https_1.onCall)(async (request) => {
     await ref.delete();
     console.log('[verifySignupOtp] sign-up complete for:', email);
     return { success: true };
+});
+// ── createSetupIntent ─────────────────────────────────────────────────────────
+//
+// Called from Flutter: FirebaseFunctions.instance.httpsCallable('createSetupIntent')
+// Creates a Stripe SetupIntent (card verification, no charge).
+// Returns: { clientSecret: String }
+exports.createSetupIntent = (0, https_1.onCall)({ secrets: [stripeKey] }, async (request) => {
+    if (!request.auth) {
+        throw new https_1.HttpsError('unauthenticated', 'User must be authenticated.');
+    }
+    const stripe = new stripe_1.default(stripeKey.value(), { apiVersion: '2025-02-24.acacia' });
+    try {
+        const setupIntent = await stripe.setupIntents.create({
+            usage: 'off_session',
+            metadata: { userId: request.auth.uid },
+        });
+        return { clientSecret: setupIntent.client_secret };
+    }
+    catch (e) {
+        console.error('[createSetupIntent] Stripe error:', e);
+        throw new https_1.HttpsError('internal', 'Failed to create setup intent.');
+    }
 });
 //# sourceMappingURL=index.js.map
