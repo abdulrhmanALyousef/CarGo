@@ -4,6 +4,7 @@ import { defineSecret } from 'firebase-functions/params';
 import * as admin from 'firebase-admin';
 import { Resend } from 'resend';
 import * as crypto from 'crypto';
+import Stripe from 'stripe';
 
 // All functions in this file will be deployed to us-central1.
 setGlobalOptions({ region: 'us-central1' });
@@ -11,7 +12,8 @@ setGlobalOptions({ region: 'us-central1' });
 admin.initializeApp();
 
 const db = admin.firestore();
-const resendKey = defineSecret('RESEND_API_KEY');
+const resendKey   = defineSecret('RESEND_API_KEY');
+const stripeKey   = defineSecret('STRIPE_SECRET_KEY');
 
 // ── Logo URL ──────────────────────────────────────────────────────────────────
 //
@@ -539,3 +541,31 @@ export const verifySignupOtp = onCall(async (request) => {
 
   return { success: true };
 });
+
+// ── createSetupIntent ─────────────────────────────────────────────────────────
+//
+// Called from Flutter: FirebaseFunctions.instance.httpsCallable('createSetupIntent')
+// Creates a Stripe SetupIntent (card verification, no charge).
+// Returns: { clientSecret: String }
+
+export const createSetupIntent = onCall(
+  { secrets: [stripeKey] },
+  async (request) => {
+    if (!request.auth) {
+      throw new HttpsError('unauthenticated', 'User must be authenticated.');
+    }
+
+    const stripe = new Stripe(stripeKey.value(), { apiVersion: '2025-02-24.acacia' });
+
+    try {
+      const setupIntent = await stripe.setupIntents.create({
+        usage: 'off_session',
+        metadata: { userId: request.auth.uid },
+      });
+      return { clientSecret: setupIntent.client_secret };
+    } catch (e: any) {
+      console.error('[createSetupIntent] Stripe error:', e);
+      throw new HttpsError('internal', 'Failed to create setup intent.');
+    }
+  }
+);
