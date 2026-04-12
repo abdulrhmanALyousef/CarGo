@@ -12,8 +12,10 @@ class HomeController extends ChangeNotifier {
   String _location = '';
   DateTimeRange? _dateRange;
 
+  // _cars holds every car fetched from Firestore.
+  // _displayedCars is the subset shown after search/filter.
   List<Car> _cars = [];
-  List<Car> get cars => _cars;
+  List<Car> _displayedCars = [];
 
   bool _isLoadingCars = false;
   bool get isLoadingCars => _isLoadingCars;
@@ -23,6 +25,9 @@ class HomeController extends ChangeNotifier {
 
   String get location => _location;
   DateTimeRange? get dateRange => _dateRange;
+
+  /// The list the UI renders — filtered when the user has searched.
+  List<Car> get cars => _displayedCars;
 
   String get dateText {
     if (_dateRange == null) return '15.08 – 19.8';
@@ -41,6 +46,10 @@ class HomeController extends ChangeNotifier {
     notifyListeners();
   }
 
+  // ── Search ────────────────────────────────────────────────────────────────
+  // Filters _displayedCars by the selected date range.
+  // A car is included when the requested rental window fits inside
+  // the car's availability window (availableFrom … availableTo).
   void search(BuildContext context) {
     if (_location.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -48,8 +57,29 @@ class HomeController extends ChangeNotifier {
       );
       return;
     }
-    // TODO: navigate to results screen
+    _applyDateFilter();
   }
+
+  void _applyDateFilter() {
+    if (_dateRange == null) {
+      _displayedCars = List.from(_cars);
+    } else {
+      final start = _dateRange!.start;
+      final end = _dateRange!.end;
+      _displayedCars = _cars.where((car) {
+        if (car.availableFrom != null && start.isBefore(car.availableFrom!)) {
+          return false;
+        }
+        if (car.availableTo != null && end.isAfter(car.availableTo!)) {
+          return false;
+        }
+        return true;
+      }).toList();
+    }
+    notifyListeners();
+  }
+
+  // ── Pickers ───────────────────────────────────────────────────────────────
 
   Future<void> openLocation(BuildContext context) async {
     final result = await showModalBottomSheet<String>(
@@ -60,9 +90,7 @@ class HomeController extends ChangeNotifier {
       ),
       builder: (_) => const LocationSheet(),
     );
-    if (result != null) {
-      setLocation(result);
-    }
+    if (result != null) setLocation(result);
   }
 
   Future<void> openDate(BuildContext context) async {
@@ -76,16 +104,16 @@ class HomeController extends ChangeNotifier {
           colorScheme: const ColorScheme.light(
             primary: LightColors.primaryColor,
             onPrimary: Colors.white,
-            surface: const Color(0xFFD4D4D4),
+            surface: Color(0xFFD4D4D4),
           ),
         ),
         child: child!,
       ),
     );
-    if (result != null) {
-      setDateRange(result);
-    }
+    if (result != null) setDateRange(result);
   }
+
+  // ── Data ──────────────────────────────────────────────────────────────────
 
   Future<void> fetchCars() async {
     _isLoadingCars = true;
@@ -95,6 +123,7 @@ class HomeController extends ChangeNotifier {
     try {
       final data = await FirebaseService().getCars();
       _cars = data.map((json) => Car.fromJson(json)).toList();
+      _displayedCars = List.from(_cars); // show all on first load
     } catch (e) {
       _carsError = e.toString();
     } finally {

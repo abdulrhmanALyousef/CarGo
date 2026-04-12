@@ -21,6 +21,7 @@ class Car {
   final String? ownerImage;
   final DateTime? availableFrom;
   final DateTime? availableTo;
+  final String city;
 
   Car({
     required this.id,
@@ -43,6 +44,7 @@ class Car {
     this.ownerImage,
     this.availableFrom,
     this.availableTo,
+    this.city = '',
   });
 
   factory Car.fromJson(Map<String, dynamic> json) {
@@ -69,6 +71,7 @@ class Car {
       ownerImage: json['ownerImage'] as String?,
       availableFrom: _parseDate(json['availableFrom']),
       availableTo: _parseDate(json['availableTo']),
+      city: json['city'] as String? ?? '',
     );
   }
 
@@ -98,6 +101,7 @@ class Car {
           availableFrom != null ? Timestamp.fromDate(availableFrom!) : null,
       'availableTo':
           availableTo != null ? Timestamp.fromDate(availableTo!) : null,
+      'city': city,
     };
   }
 }
