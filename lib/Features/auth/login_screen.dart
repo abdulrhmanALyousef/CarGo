@@ -4,6 +4,7 @@ import 'package:cargo/core/widgets/custom_text_formField.dart';
 import 'package:cargo/Features/auth/controllers/login_controller.dart';
 import 'package:cargo/core/theme/light_color.dart';
 import 'package:cargo/Features/auth/siginup_screen.dart';
+import 'package:cargo/Features/auth/forgot_password_screen.dart';
 
 class LoginScreen extends StatelessWidget {
   const LoginScreen({super.key});
@@ -147,8 +148,12 @@ class LoginScreen extends StatelessWidget {
                         Align(
                           alignment: Alignment.centerRight,
                           child: TextButton(
-                            onPressed: () =>
-                                ctrl.showForgotPasswordDialog(context),
+                            onPressed: () => Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (_) => const ForgotPasswordScreen(),
+                              ),
+                            ),
                             child: Text(
                               'Forgot password?',
                               style: TextStyle(
@@ -203,34 +208,6 @@ class LoginScreen extends StatelessWidget {
                                 ),
                         ),
                       ),
-                      // Resend verification email — shown only after a
-                      // login attempt is blocked by unverified email.
-                      if (ctrl.showResendButton) ...[
-                        const SizedBox(height: 12),
-                        SizedBox(
-                          width: double.infinity,
-                          height: 48,
-                          child: OutlinedButton(
-                            onPressed: ctrl.isLoading
-                                ? null
-                                : () =>
-                                    ctrl.resendVerificationEmail(context),
-                            style: OutlinedButton.styleFrom(
-                              side: const BorderSide(
-                                  color: LightColors.primaryColor),
-                              shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(30)),
-                            ),
-                            child: const Text(
-                              'Resend Verification Email',
-                              style: TextStyle(
-                                color: LightColors.primaryColor,
-                                fontWeight: FontWeight.w500,
-                              ),
-                            ),
-                          ),
-                        ),
-                      ],
                       const SizedBox(height: 40),
                       // Sign In في الأسفل
                       Center(
