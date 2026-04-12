@@ -161,6 +161,30 @@ class FirebaseService {
     return _auth.signInWithCredential(credential);
   }
 
+  // ── Auth state ────────────────────────────────────────────────────────────
+
+  bool isUserLoggedIn() => _auth.currentUser != null;
+
+  // ── Firestore reads ───────────────────────────────────────────────────────
+
+  Future<List<Map<String, dynamic>>> getCars() async {
+    final snapshot = await _firestore.collection('cars').get();
+    return snapshot.docs.map((doc) => {'id': doc.id, ...doc.data()}).toList();
+  }
+
+  Future<List<Map<String, dynamic>>> getReviews(String carId) async {
+    final snapshot = await _firestore
+        .collection('Reviews')
+        .where('carId', isEqualTo: carId)
+        .get();
+    return snapshot.docs.map((doc) => {'id': doc.id, ...doc.data()}).toList();
+  }
+
+  Future<Map<String, dynamic>?> getUserData({required String uid}) async {
+    final doc = await _firestore.collection('users').doc(uid).get();
+    return doc.data();
+  }
+
   // ── Sign-up OTP (Cloud Functions) ────────────────────────────────────────
 
   /// Sends a 6-digit OTP to [email] for sign-up verification.
