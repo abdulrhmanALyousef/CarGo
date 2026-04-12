@@ -4,6 +4,7 @@ import 'package:cargo/core/dataSource/remote_data/firebase_service.dart';
 import 'package:cargo/core/dataSource/local_data/preferences_manager.dart';
 import 'package:cargo/Features/Main/main_screen.dart';
 import 'package:cargo/Features/auth/otp_screen.dart';
+// ignore_for_file: unused_import
 
 enum LoginMethod { email, phone }
 
@@ -23,11 +24,6 @@ class LoginController extends ChangeNotifier {
 
   bool _isLoading = false;
   bool get isLoading => _isLoading;
-
-  // True after a login attempt is blocked by unverified email.
-  // The UI uses this to show the "Resend Verification Email" button.
-  bool _showResendButton = false;
-  bool get showResendButton => _showResendButton;
 
   String get primaryButtonText {
     if (isPhone) {
@@ -109,7 +105,6 @@ class LoginController extends ChangeNotifier {
 
   Future<void> _loginWithEmail(BuildContext context) async {
     _isLoading = true;
-    _showResendButton = false;
     notifyListeners();
 
     try {
@@ -123,22 +118,6 @@ class LoginController extends ChangeNotifier {
         return;
       }
 
-      // Reload to get the latest emailVerified state from Firebase.
-      await user.reload();
-      final fresh = FirebaseAuth.instance.currentUser;
-
-      if (fresh == null || !fresh.emailVerified) {
-        // Sign out immediately — unverified users must not enter the app.
-        await FirebaseAuth.instance.signOut();
-        _showResendButton = true;
-        _showError(
-          context,
-          'Please verify your email before logging in. '
-          'Check your inbox and spam folder.',
-        );
-        return;
-      }
-
       await PreferencesManager().setBool('isLoggedIn', true);
       if (context.mounted) {
         Navigator.pushReplacement(
@@ -148,105 +127,6 @@ class LoginController extends ChangeNotifier {
       }
     } catch (e) {
       _showError(context, 'Login failed: ${e.toString()}');
-    } finally {
-      _isLoading = false;
-      notifyListeners();
-    }
-  }
-
-  // ─── Resend Verification Email ────────────────────────────────────────────
-  // Signs in temporarily to obtain a live user object, sends the verification
-  // email, then signs out again so the unverified user cannot enter the app.
-  Future<void> resendVerificationEmail(BuildContext context) async {
-    _isLoading = true;
-    notifyListeners();
-    try {
-      final cred = await FirebaseAuth.instance.signInWithEmailAndPassword(
-        email: emailController.text.trim(),
-        password: passwordController.text.trim(),
-      );
-      await cred.user?.sendEmailVerification();
-      await FirebaseAuth.instance.signOut();
-      _showResendButton = false;
-      if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text(
-              'Verification email sent. Check your inbox and spam folder.',
-            ),
-            backgroundColor: Colors.green,
-            duration: Duration(seconds: 5),
-          ),
-        );
-      }
-    } catch (e) {
-      _showError(context, 'Failed to resend: ${e.toString()}');
-    } finally {
-      _isLoading = false;
-      notifyListeners();
-    }
-  }
-
-  // ─── Forgot Password ──────────────────────────────────────────────────────
-  // Shows a dialog asking for an email address, then sends a Firebase
-  // password-reset email. Pre-fills with whatever is already in the email field.
-  Future<void> showForgotPasswordDialog(BuildContext context) async {
-    final emailCtrl =
-        TextEditingController(text: emailController.text.trim());
-
-    await showDialog<void>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Reset Password'),
-        content: TextField(
-          controller: emailCtrl,
-          keyboardType: TextInputType.emailAddress,
-          autofocus: true,
-          decoration: const InputDecoration(
-            labelText: 'Email',
-            hintText: 'Enter your email address',
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: const Text('Cancel'),
-          ),
-          TextButton(
-            onPressed: () async {
-              final email = emailCtrl.text.trim();
-              if (email.isEmpty) return;
-              Navigator.pop(ctx);
-              await _sendPasswordReset(context, email);
-            },
-            child: const Text('Send Reset Email'),
-          ),
-        ],
-      ),
-    );
-
-    emailCtrl.dispose();
-  }
-
-  Future<void> _sendPasswordReset(BuildContext context, String email) async {
-    _isLoading = true;
-    notifyListeners();
-    try {
-      await FirebaseService().resetPassword(email: email);
-      if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text(
-              'Check your email to reset your password. '
-              'Also check your spam folder.',
-            ),
-            backgroundColor: Colors.green,
-            duration: Duration(seconds: 5),
-          ),
-        );
-      }
-    } catch (e) {
-      _showError(context, 'Failed to send reset email: ${e.toString()}');
     } finally {
       _isLoading = false;
       notifyListeners();
