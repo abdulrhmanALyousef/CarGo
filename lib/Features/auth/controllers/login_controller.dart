@@ -14,6 +14,24 @@ class LoginController extends ChangeNotifier {
   final TextEditingController phoneController = TextEditingController();
   final TextEditingController otpController = TextEditingController();
 
+  static const _phonePrefix = '+966';
+
+  LoginController() {
+    phoneController.text = _phonePrefix;
+    phoneController.addListener(_guardPhonePrefix);
+  }
+
+  void _guardPhonePrefix() {
+    if (!phoneController.text.startsWith(_phonePrefix)) {
+      final digits = phoneController.text.replaceAll(RegExp(r'[^0-9]'), '');
+      final restored = _phonePrefix + digits;
+      phoneController.value = TextEditingValue(
+        text: restored,
+        selection: TextSelection.collapsed(offset: restored.length),
+      );
+    }
+  }
+
   LoginMethod _method = LoginMethod.email;
   LoginMethod get method => _method;
   bool get isEmail => _method == LoginMethod.email;
@@ -42,6 +60,7 @@ class LoginController extends ChangeNotifier {
 
   @override
   void dispose() {
+    phoneController.removeListener(_guardPhonePrefix);
     emailController.dispose();
     passwordController.dispose();
     phoneController.dispose();
@@ -70,12 +89,13 @@ class LoginController extends ChangeNotifier {
   }
 
   String? validatePhone(String? value) {
-    if (value == null || value.isEmpty) {
+    final v = value?.trim() ?? '';
+    if (v == _phonePrefix || v.length <= _phonePrefix.length) {
       return 'Please enter your phone number';
     }
-    // Simple phone validation (you can tighten as needed)
-    if (!RegExp(r'^[0-9+]{8,15}$').hasMatch(value.trim())) {
-      return 'Please enter a valid phone number';
+    final digits = v.substring(_phonePrefix.length);
+    if (!RegExp(r'^5[0-9]{8}$').hasMatch(digits)) {
+      return 'Enter a valid Saudi number (9 digits starting with 5)';
     }
     return null;
   }

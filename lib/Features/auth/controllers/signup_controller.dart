@@ -13,6 +13,24 @@ class SignUpController extends ChangeNotifier {
   final TextEditingController passwordController = TextEditingController();
   final TextEditingController confirmPasswordController = TextEditingController();
 
+  SignUpController() {
+    phoneController.text = '+966';
+    phoneController.addListener(_guardPhonePrefix);
+  }
+
+  static const _phonePrefix = '+966';
+
+  void _guardPhonePrefix() {
+    if (!phoneController.text.startsWith(_phonePrefix)) {
+      final digits = phoneController.text.replaceAll(RegExp(r'[^0-9]'), '');
+      final restored = _phonePrefix + digits;
+      phoneController.value = TextEditingValue(
+        text: restored,
+        selection: TextSelection.collapsed(offset: restored.length),
+      );
+    }
+  }
+
   bool _isLoading = false;
   bool get isLoading => _isLoading;
 
@@ -64,9 +82,13 @@ class SignUpController extends ChangeNotifier {
   }
 
   String? validatePhone(String? value) {
-    if (value == null || value.trim().isEmpty) return 'Please enter your phone number';
-    if (!RegExp(r'^[0-9+]{8,15}$').hasMatch(value.trim())) {
-      return 'Please enter a valid phone number';
+    final v = value?.trim() ?? '';
+    if (v == _phonePrefix || v.length <= _phonePrefix.length) {
+      return 'Please enter your phone number';
+    }
+    final digits = v.substring(_phonePrefix.length);
+    if (!RegExp(r'^5[0-9]{8}$').hasMatch(digits)) {
+      return 'Enter a valid Saudi number (9 digits starting with 5)';
     }
     return null;
   }
@@ -179,6 +201,7 @@ class SignUpController extends ChangeNotifier {
 
   @override
   void dispose() {
+    phoneController.removeListener(_guardPhonePrefix);
     fullNameController.dispose();
     emailController.dispose();
     phoneController.dispose();

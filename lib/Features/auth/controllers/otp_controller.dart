@@ -61,8 +61,10 @@ class OtpController extends ChangeNotifier {
 
   // ─── Input logic ──────────────────────────────────────────────────────────
   void onChanged(String value, int index) {
-    if (value.length == 1 && index < 5) {
+    if (value.isNotEmpty && index < 5) {
       focusNodes[index + 1].requestFocus();
+    } else if (value.isEmpty && index > 0) {
+      focusNodes[index - 1].requestFocus();
     }
     notifyListeners();
   }
