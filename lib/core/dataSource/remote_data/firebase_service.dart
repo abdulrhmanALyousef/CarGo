@@ -2,62 +2,23 @@ import 'dart:io';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_storage/firebase_storage.dart';
+import 'package:cloud_functions/cloud_functions.dart';
 
 class FirebaseService {
   static final FirebaseService _instance = FirebaseService._internal();
 
-  factory FirebaseService() {
-    return _instance;
-  }
+  factory FirebaseService() => _instance;
 
   FirebaseService._internal();
 
   final FirebaseAuth _auth = FirebaseAuth.instance;
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   final FirebaseStorage _storage = FirebaseStorage.instance;
+  final FirebaseFunctions _functions =
+      FirebaseFunctions.instanceFor(region: 'us-central1');
 
-  /// Upload driving license image to Firebase Storage
-  /// Returns the download URL
-  Future<String> uploadDrivingLicense({
-    required String uid,
-    required File imageFile,
-  }) async {
-    final ref = _storage.ref().child('driving_licenses/$uid/license.jpg');
-    await ref.putFile(imageFile);
-    return await ref.getDownloadURL();
-  }
+  // ── Sign Up ───────────────────────────────────────────────────────────────
 
-  /// Update licenseUrl field in existing user document
-  Future<void> updateUserLicenseUrl({
-    required String uid,
-    required String licenseUrl,
-  }) async {
-    await _firestore.collection('users').doc(uid).update({
-      'licenseUrl': licenseUrl,
-    });
-  }
-
-  /// Check if phone number already exists in Firestore
-  Future<bool> isPhoneExists(String phone) async {
-    final query = await _firestore
-        .collection('users')
-        .where('phone', isEqualTo: phone)
-        .limit(1)
-        .get();
-    return query.docs.isNotEmpty;
-  }
-
-  /// Check if national ID already exists in Firestore
-  Future<bool> isNationalIdExists(String nationalId) async {
-    final query = await _firestore
-        .collection('users')
-        .where('nationalId', isEqualTo: nationalId)
-        .limit(1)
-        .get();
-    return query.docs.isNotEmpty;
-  }
-
-  /// Sign Up with Email and Password
   Future<User?> signUp({
     required String email,
     required String password,
@@ -67,16 +28,13 @@ class FirebaseService {
     String? licenseUrl,
   }) async {
     try {
-      final UserCredential userCredential = await _auth.createUserWithEmailAndPassword(
+      final credential = await _auth.createUserWithEmailAndPassword(
         email: email,
         password: password,
       );
-
-      final User? user = userCredential.user;
-
+      final user = credential.user;
       if (user != null) {
         await user.updateDisplayName(fullName);
-
         await _firestore.collection('users').doc(user.uid).set({
           'uid': user.uid,
           'fullName': fullName,
@@ -86,10 +44,8 @@ class FirebaseService {
           'licenseUrl': licenseUrl ?? '',
           'createdAt': FieldValue.serverTimestamp(),
         });
-
-        return user;
       }
-      return null;
+      return user;
     } on FirebaseAuthException catch (e) {
       print('Sign Up Error: ${e.message}');
       rethrow;
@@ -99,19 +55,18 @@ class FirebaseService {
     }
   }
 
-  /// Login with Email and Password
+  // ── Login ─────────────────────────────────────────────────────────────────
+
   Future<User?> login({
     required String email,
     required String password,
   }) async {
     try {
-      final UserCredential userCredential = await _auth.signInWithEmailAndPassword(
+      final credential = await _auth.signInWithEmailAndPassword(
         email: email,
         password: password,
       );
-
-      // Login should rely on Firebase Auth only; no Firestore writes here.
-      return userCredential.user;
+      return credential.user;
     } on FirebaseAuthException catch (e) {
       print('Login Error: ${e.message}');
       rethrow;
@@ -121,7 +76,8 @@ class FirebaseService {
     }
   }
 
-  /// Logout
+  // ── Logout ────────────────────────────────────────────────────────────────
+
   Future<void> logout() async {
     try {
       await _auth.signOut();
@@ -131,75 +87,51 @@ class FirebaseService {
     }
   }
 
-  /// Get Current User
-  User? getCurrentUser() {
-    return _auth.currentUser;
-  }
+  // ── Driving License ───────────────────────────────────────────────────────
 
-  /// Check if user is logged in
-  bool isUserLoggedIn() {
-    return _auth.currentUser != null;
-  }
-
-  /// Get User Stream (for real-time auth state changes)
-  Stream<User?> getUserStream() {
-    return _auth.authStateChanges();
-  }
-
-  /// Reset Password
-  Future<void> resetPassword({required String email}) async {
-    try {
-      await _auth.sendPasswordResetEmail(email: email);
-    } on FirebaseAuthException catch (e) {
-      print('Reset Password Error: ${e.message}');
-      rethrow;
-    } catch (e) {
-      print('Unexpected Error during Reset Password: $e');
-      rethrow;
+  Future<String> uploadDrivingLicense({
+    required String uid,
+    required File imageFile,
+  }) async {
+    if (_auth.currentUser == null) {
+      throw Exception('User must be authenticated before uploading files');
     }
+    final ref = _storage.ref().child('driving_licenses/$uid/license.jpg');
+    await ref.putFile(imageFile);
+    return await ref.getDownloadURL();
   }
 
-  /// Get User Data from Firestore
-  Future<Map<String, dynamic>?> getUserData({required String uid}) async {
-    try {
-      final DocumentSnapshot doc = await _firestore.collection('users').doc(uid).get();
-      return doc.data() as Map<String, dynamic>?;
-    } catch (e) {
-      print('Get User Data Error: $e');
-      rethrow;
-    }
+  Future<void> updateUserLicenseUrl({
+    required String uid,
+    required String licenseUrl,
+  }) async {
+    await _firestore.collection('users').doc(uid).update({
+      'licenseUrl': licenseUrl,
+    });
   }
 
-  /// Fetch all cars from Firestore
-  Future<List<Map<String, dynamic>>> getCars() async {
-    try {
-      final snapshot = await _firestore.collection('cars').get();
-      return snapshot.docs
-          .map((doc) => {'id': doc.id, ...doc.data()})
-          .toList();
-    } catch (e) {
-      print('Get Cars Error: $e');
-      rethrow;
-    }
+  // ── Duplicate checks ──────────────────────────────────────────────────────
+
+  Future<bool> isPhoneExists(String phone) async {
+    final query = await _firestore
+        .collection('users')
+        .where('phone', isEqualTo: phone)
+        .limit(1)
+        .get();
+    return query.docs.isNotEmpty;
   }
 
-  /// Fetch reviews for a specific car
-  Future<List<Map<String, dynamic>>> getReviews(String carId) async {
-    try {
-      final snapshot = await _firestore
-          .collection('Reviews')
-          .where('carId', isEqualTo: carId)
-          .get();
-      return snapshot.docs
-          .map((doc) => {'id': doc.id, ...doc.data()})
-          .toList();
-    } catch (e) {
-      print('Get Reviews Error: $e');
-      rethrow;
-    }
+  Future<bool> isNationalIdExists(String nationalId) async {
+    final query = await _firestore
+        .collection('users')
+        .where('nationalId', isEqualTo: nationalId)
+        .limit(1)
+        .get();
+    return query.docs.isNotEmpty;
   }
 
-  /// Send phone verification code
+  // ── Phone Auth ────────────────────────────────────────────────────────────
+
   Future<void> sendPhoneVerification({
     required String phoneNumber,
     required PhoneVerificationCompleted onCompleted,
@@ -218,7 +150,6 @@ class FirebaseService {
     );
   }
 
-  /// Sign in with the SMS verification code
   Future<UserCredential> signInWithSmsCode({
     required String verificationId,
     required String smsCode,
@@ -228,5 +159,52 @@ class FirebaseService {
       smsCode: smsCode,
     );
     return _auth.signInWithCredential(credential);
+  }
+
+  // ── Sign-up OTP (Cloud Functions) ────────────────────────────────────────
+
+  /// Sends a 6-digit OTP to [email] for sign-up verification.
+  /// The Firebase Auth user is NOT created until [verifySignupOtp] succeeds.
+  Future<void> sendSignupOtp(String email) async {
+    final callable = _functions.httpsCallable('sendSignupOtp');
+    await callable.call<dynamic>({'email': email});
+  }
+
+  /// Verifies the sign-up OTP and creates the Firebase Auth + Firestore user.
+  /// [password] is transmitted over HTTPS and never stored in Firestore.
+  Future<void> verifySignupOtp({
+    required String email,
+    required String code,
+    required String password,
+    required String fullName,
+    String phone = '',
+    String nationalId = '',
+  }) async {
+    final callable = _functions.httpsCallable('verifySignupOtp');
+    await callable.call<dynamic>({
+      'email': email,
+      'code': code,
+      'password': password,
+      'fullName': fullName,
+      'phone': phone,
+      'nationalId': nationalId,
+    });
+  }
+
+  // ── Password-reset OTP (Cloud Functions) ─────────────────────────────────
+
+  Future<void> sendOtp(String email) async {
+    final callable = _functions.httpsCallable('sendOtp');
+    await callable.call<dynamic>({'email': email});
+  }
+
+  Future<void> verifyOtp(String email, String code) async {
+    final callable = _functions.httpsCallable('verifyOtp');
+    await callable.call<dynamic>({'email': email, 'code': code});
+  }
+
+  Future<void> resetPasswordWithOtp(String email, String newPassword) async {
+    final callable = _functions.httpsCallable('resetPassword');
+    await callable.call<dynamic>({'email': email, 'newPassword': newPassword});
   }
 }

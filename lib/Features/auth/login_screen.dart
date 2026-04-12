@@ -4,6 +4,7 @@ import 'package:cargo/core/widgets/custom_text_formField.dart';
 import 'package:cargo/Features/auth/controllers/login_controller.dart';
 import 'package:cargo/core/theme/light_color.dart';
 import 'package:cargo/Features/auth/siginup_screen.dart';
+import 'package:cargo/Features/auth/forgot_password_screen.dart';
 
 class LoginScreen extends StatelessWidget {
   const LoginScreen({super.key});
@@ -143,7 +144,12 @@ class LoginScreen extends StatelessWidget {
                         Align(
                           alignment: Alignment.centerRight,
                           child: TextButton(
-                            onPressed: () {},
+                            onPressed: () => Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (_) => const ForgotPasswordScreen(),
+                              ),
+                            ),
                             child: Text(
                               'Forgot password?',
                               style: TextStyle(

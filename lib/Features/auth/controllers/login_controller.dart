@@ -4,6 +4,7 @@ import 'package:cargo/core/dataSource/remote_data/firebase_service.dart';
 import 'package:cargo/core/dataSource/local_data/preferences_manager.dart';
 import 'package:cargo/Features/Main/main_screen.dart';
 import 'package:cargo/Features/auth/otp_screen.dart';
+// ignore_for_file: unused_import
 
 enum LoginMethod { email, phone }
 
@@ -112,16 +113,17 @@ class LoginController extends ChangeNotifier {
         password: passwordController.text.trim(),
       );
 
-      if (user != null) {
-        await PreferencesManager().setBool('isLoggedIn', true);
-        if (context.mounted) {
-          Navigator.pushReplacement(
-            context,
-            MaterialPageRoute(builder: (_) => const MainScreen()),
-          );
-        }
-      } else {
+      if (user == null) {
         _showError(context, 'Login failed');
+        return;
+      }
+
+      await PreferencesManager().setBool('isLoggedIn', true);
+      if (context.mounted) {
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (_) => const MainScreen()),
+        );
       }
     } catch (e) {
       _showError(context, 'Login failed: ${e.toString()}');
