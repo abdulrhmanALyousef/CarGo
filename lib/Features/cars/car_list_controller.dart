@@ -13,53 +13,59 @@ class CarListController extends ChangeNotifier {
 
   final TextEditingController searchController = TextEditingController();
 
+  // ── Filter panel visibility ───────────────────────────────────────────────
+  bool _showFilters = false;
+  bool get showFilters => _showFilters;
+
+  void toggleFilters() {
+    _showFilters = !_showFilters;
+    notifyListeners();
+  }
+
+  // ── Price range (slider) ──────────────────────────────────────────────────
+  static const double minPrice = 0;
+  static const double maxPrice = 500;
+  RangeValues _priceRange = const RangeValues(0, 500);
+  RangeValues get priceRange => _priceRange;
+
+  void updatePriceRange(RangeValues values) {
+    _priceRange = values;
+    _applyFilters();
+    notifyListeners();
+  }
+
+  // ── Car types ─────────────────────────────────────────────────────────────
+  final List<String> carTypes = [
+    'Family',
+    'Sport',
+    'Off-Road',
+    'SUV',
+    'Luxury',
+    'Economic',
+  ];
+  final Set<String> _selectedTypes = {};
+  Set<String> get selectedTypes => _selectedTypes;
+
+  void toggleType(String type) {
+    if (_selectedTypes.contains(type)) {
+      _selectedTypes.remove(type);
+    } else {
+      _selectedTypes.add(type);
+    }
+    _applyFilters();
+    notifyListeners();
+  }
+
+  // ── Date range ────────────────────────────────────────────────────────────
   DateTimeRange? _dateRange;
   DateTimeRange? get dateRange => _dateRange;
 
   String get dateText {
-    if (_dateRange == null) return 'Select dates';
+    if (_dateRange == null) return 'Pick Up date';
     String fmt(DateTime d) =>
         '${d.day.toString().padLeft(2, '0')}.${d.month.toString().padLeft(2, '0')}';
     return '${fmt(_dateRange!.start)} – ${fmt(_dateRange!.end)}';
   }
-
-  List<Car> _all = [];
-  List<Car> _filtered = [];
-  List<Car> get cars => _filtered;
-
-  bool _isLoading = false;
-  bool get isLoading => _isLoading;
-
-  String? _error;
-  String? get error => _error;
-
-  // ── Data ──────────────────────────────────────────────────────────────────
-
-  Future<void> fetchCars() async {
-    _isLoading = true;
-    _error = null;
-    notifyListeners();
-    try {
-      final snapshot = await FirebaseFirestore.instance
-          .collection('cars')
-          .where('city', isEqualTo: cityName)
-          .get();
-      _all = snapshot.docs.map((doc) {
-        final data = doc.data();
-        data['id'] = doc.id;
-        return Car.fromJson(data);
-      }).toList();
-      _applyFilters();
-    } catch (e) {
-      _error = e.toString();
-      notifyListeners();
-    } finally {
-      _isLoading = false;
-      notifyListeners();
-    }
-  }
-
-  // ── Date picker ───────────────────────────────────────────────────────────
 
   Future<void> pickDates(BuildContext context) async {
     final result = await showDateRangePicker(
@@ -88,35 +94,76 @@ class CarListController extends ChangeNotifier {
     _applyFilters();
   }
 
-  // ── Filtering ─────────────────────────────────────────────────────────────
-  // Runs every time the text field changes OR dates change.
-  // Two independent filters are AND-ed:
-  //
-  //   1. Text — matches brand or model (case-insensitive substring).
-  //   2. Date — the requested rental window [start, end] must fit inside
-  //             the car's availability window [availableFrom, availableTo].
-  //             Cars with no availability window are always shown.
+  // ── Data ──────────────────────────────────────────────────────────────────
+  List<Car> _all = [];
+  List<Car> _filtered = [];
+  List<Car> get cars => _filtered;
 
+  bool _isLoading = false;
+  bool get isLoading => _isLoading;
+
+  String? _error;
+  String? get error => _error;
+
+  Future<void> fetchCars() async {
+    _isLoading = true;
+    _error = null;
+    notifyListeners();
+    try {
+      final snapshot = await FirebaseFirestore.instance
+          .collection('cars')
+          .where('city', isEqualTo: cityName)
+          .get();
+      _all = snapshot.docs.map((doc) {
+        final data = doc.data();
+        data['id'] = doc.id;
+        return Car.fromJson(data);
+      }).toList();
+      _applyFilters();
+    } catch (e) {
+      _error = e.toString();
+      notifyListeners();
+    } finally {
+      _isLoading = false;
+      notifyListeners();
+    }
+  }
+
+  // ── Filtering ─────────────────────────────────────────────────────────────
   void _applyFilters() {
     final query = searchController.text.trim().toLowerCase();
 
     _filtered = _all.where((car) {
-      // ── Text filter ──────────────────────────────────────────────────────
+      // Text filter
       if (query.isNotEmpty) {
         final haystack = '${car.brand} ${car.model}'.toLowerCase();
         if (!haystack.contains(query)) return false;
       }
 
-      // ── Date availability filter ─────────────────────────────────────────
+      // Price range filter
+      if (car.pricePerDay < _priceRange.start ||
+          car.pricePerDay > _priceRange.end) {
+        return false;
+      }
+
+      // Car type filter
+      if (_selectedTypes.isNotEmpty) {
+        final matchesType = _selectedTypes.any((type) {
+          final t = type.toLowerCase();
+          return car.brand.toLowerCase().contains(t) ||
+              car.overview.toLowerCase().contains(t) ||
+              car.transmission.toLowerCase().contains(t);
+        });
+        if (!matchesType) return false;
+      }
+
+      // Date availability filter
       if (_dateRange != null) {
         final start = _dateRange!.start;
         final end = _dateRange!.end;
-
-        // Rental must start on or after availableFrom
         if (car.availableFrom != null && start.isBefore(car.availableFrom!)) {
           return false;
         }
-        // Rental must end on or before availableTo
         if (car.availableTo != null && end.isAfter(car.availableTo!)) {
           return false;
         }
@@ -125,6 +172,15 @@ class CarListController extends ChangeNotifier {
       return true;
     }).toList();
 
+    notifyListeners();
+  }
+
+  void clearFilters() {
+    _priceRange = const RangeValues(0, 500);
+    _selectedTypes.clear();
+    _dateRange = null;
+    searchController.clear();
+    _applyFilters();
     notifyListeners();
   }
 

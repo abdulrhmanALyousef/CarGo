@@ -29,9 +29,9 @@ class _CarListView extends StatelessWidget {
     final ctrl = context.watch<CarListController>();
 
     return Scaffold(
-      backgroundColor: LightColors.backgroundColor,
+      backgroundColor: Colors.white,
       appBar: AppBar(
-        backgroundColor: LightColors.backgroundColor,
+        backgroundColor: Colors.white,
         elevation: 0,
         title: Text(
           cityName,
@@ -44,16 +44,27 @@ class _CarListView extends StatelessWidget {
         iconTheme: const IconThemeData(color: LightColors.textColor),
       ),
       body: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           _SearchBar(ctrl: ctrl),
-          _DateChip(ctrl: ctrl),
-          _CarCount(ctrl: ctrl),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 4),
+            child: Text(
+              '${ctrl.cars.length} result${ctrl.cars.length == 1 ? '' : 's'}',
+              style: TextStyle(fontSize: 14, color: Colors.grey.shade600),
+            ),
+          ),
+          const SizedBox(height: 8),
+          _FilterPanel(ctrl: ctrl),
+          if (ctrl.showFilters) const SizedBox(height: 12),
           Expanded(child: _CarList(ctrl: ctrl)),
         ],
       ),
     );
   }
 }
+
+// ── Search bar — matches SearchBarWidget style ────────────────────────────────
 
 class _SearchBar extends StatelessWidget {
   const _SearchBar({required this.ctrl});
@@ -63,118 +74,277 @@ class _SearchBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
-      child: TextField(
-        controller: ctrl.searchController,
-        decoration: InputDecoration(
-          hintText: 'Search by brand or model…',
-          hintStyle: TextStyle(color: Colors.grey.shade500, fontSize: 14),
-          prefixIcon: const Icon(Icons.search, color: LightColors.primaryColor),
-          filled: true,
-          fillColor: Colors.white,
-          contentPadding:
-              const EdgeInsets.symmetric(vertical: 0, horizontal: 16),
-          border: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(12),
-            borderSide: BorderSide.none,
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _DateChip extends StatelessWidget {
-  const _DateChip({required this.ctrl});
-
-  final CarListController ctrl;
-
-  @override
-  Widget build(BuildContext context) {
-    final hasDate = ctrl.dateRange != null;
-
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 10, 16, 0),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
       child: Row(
         children: [
-          GestureDetector(
-            onTap: () => ctrl.pickDates(context),
+          Expanded(
             child: Container(
-              padding:
-                  const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+              height: 48,
               decoration: BoxDecoration(
-                color: hasDate
-                    ? LightColors.primaryColor
-                    : Colors.white,
-                borderRadius: BorderRadius.circular(20),
+                color: Colors.grey.shade100,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: Colors.grey.shade200),
               ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(
-                    Icons.calendar_today_outlined,
-                    size: 14,
-                    color: hasDate ? Colors.white : LightColors.primaryColor,
-                  ),
-                  const SizedBox(width: 6),
-                  Text(
-                    ctrl.dateText,
-                    style: TextStyle(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w500,
-                      color: hasDate ? Colors.white : LightColors.textColor,
-                    ),
-                  ),
-                ],
+              child: TextField(
+                controller: ctrl.searchController,
+                decoration: InputDecoration(
+                  hintText: 'Search cars…',
+                  hintStyle: TextStyle(color: Colors.grey.shade500),
+                  prefixIcon:
+                      Icon(Icons.search, color: Colors.grey.shade500),
+                  border: InputBorder.none,
+                  contentPadding: const EdgeInsets.symmetric(vertical: 14),
+                ),
               ),
             ),
           ),
-          if (hasDate) ...[
-            const SizedBox(width: 8),
-            GestureDetector(
-              onTap: ctrl.clearDates,
-              child: Container(
-                padding: const EdgeInsets.all(6),
-                decoration: const BoxDecoration(
-                  color: Colors.white,
-                  shape: BoxShape.circle,
-                ),
-                child: const Icon(Icons.close, size: 14,
-                    color: LightColors.textColor),
-              ),
+          const SizedBox(width: 10),
+          Container(
+            width: 48,
+            height: 48,
+            decoration: BoxDecoration(
+              color: ctrl.showFilters
+                  ? const Color(0xFF004B09).withValues(alpha: 0.15)
+                  : Colors.grey.shade100,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: Colors.grey.shade200),
             ),
-          ],
+            child: IconButton(
+              icon: const Icon(Icons.tune, color: Colors.black54),
+              onPressed: ctrl.toggleFilters,
+            ),
+          ),
         ],
       ),
     );
   }
 }
 
-class _CarCount extends StatelessWidget {
-  const _CarCount({required this.ctrl});
+// ── Filter panel — matches SearchFilterPanel style ────────────────────────────
+
+class _FilterPanel extends StatelessWidget {
+  const _FilterPanel({required this.ctrl});
 
   final CarListController ctrl;
 
   @override
   Widget build(BuildContext context) {
-    if (ctrl.isLoading || ctrl.error != null) return const SizedBox.shrink();
+    if (!ctrl.showFilters) return const SizedBox.shrink();
+
+    final hasDate = ctrl.dateRange != null;
 
     return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
-      child: Align(
-        alignment: Alignment.centerLeft,
-        child: Text(
-          '${ctrl.cars.length} car${ctrl.cars.length == 1 ? '' : 's'} available',
-          style: TextStyle(
-            fontSize: 13,
-            color: Colors.grey.shade600,
-            fontWeight: FontWeight.w500,
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      child: AnimatedSize(
+        duration: const Duration(milliseconds: 300),
+        curve: Curves.easeInOut,
+        child: Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(16),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.06),
+                blurRadius: 12,
+                offset: const Offset(0, 4),
+              ),
+            ],
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // ── Price Range ───────────────────────────────────────────
+              const Text(
+                'Price Range:',
+                style: TextStyle(
+                  fontSize: 15,
+                  fontWeight: FontWeight.w600,
+                  color: LightColors.textColor,
+                ),
+              ),
+              const SizedBox(height: 4),
+              SliderTheme(
+                data: SliderTheme.of(context).copyWith(
+                  activeTrackColor: LightColors.primaryColor,
+                  inactiveTrackColor: Colors.grey.shade200,
+                  thumbColor: LightColors.primaryColor,
+                  overlayColor:
+                      LightColors.primaryColor.withValues(alpha: 0.15),
+                  thumbShape:
+                      const RoundSliderThumbShape(enabledThumbRadius: 8),
+                  trackHeight: 4,
+                  rangeThumbShape: const RoundRangeSliderThumbShape(
+                      enabledThumbRadius: 8),
+                ),
+                child: RangeSlider(
+                  values: ctrl.priceRange,
+                  min: CarListController.minPrice,
+                  max: CarListController.maxPrice,
+                  onChanged: ctrl.updatePriceRange,
+                ),
+              ),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  _PriceChip('${ctrl.priceRange.start.round()} SAR'),
+                  _PriceChip('${ctrl.priceRange.end.round()} SAR'),
+                ],
+              ),
+
+              const SizedBox(height: 16),
+
+              // ── Car Type Grid ─────────────────────────────────────────
+              GridView.count(
+                crossAxisCount: 3,
+                crossAxisSpacing: 10,
+                mainAxisSpacing: 10,
+                childAspectRatio: 3.5,
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                children: ctrl.carTypes.map((type) {
+                  final isSelected = ctrl.selectedTypes.contains(type);
+                  return GestureDetector(
+                    onTap: () => ctrl.toggleType(type),
+                    child: Row(
+                      children: [
+                        Container(
+                          width: 20,
+                          height: 20,
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            border: Border.all(
+                              color: isSelected
+                                  ? LightColors.primaryColor
+                                  : Colors.grey.shade400,
+                              width: 2,
+                            ),
+                            color: isSelected
+                                ? LightColors.primaryColor
+                                : Colors.transparent,
+                          ),
+                          child: isSelected
+                              ? const Icon(Icons.check,
+                                  size: 12, color: Colors.white)
+                              : null,
+                        ),
+                        const SizedBox(width: 6),
+                        Flexible(
+                          child: Text(
+                            type,
+                            style: TextStyle(
+                              fontSize: 13,
+                              color: isSelected
+                                  ? LightColors.primaryColor
+                                  : LightColors.textColor,
+                              fontWeight: isSelected
+                                  ? FontWeight.w600
+                                  : FontWeight.normal,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  );
+                }).toList(),
+              ),
+
+              const SizedBox(height: 16),
+
+              // ── Date picker ───────────────────────────────────────────
+              const Text(
+                'Pick Up Date:',
+                style: TextStyle(
+                  fontSize: 15,
+                  fontWeight: FontWeight.w600,
+                  color: LightColors.textColor,
+                ),
+              ),
+              const SizedBox(height: 8),
+              Row(
+                children: [
+                  Expanded(
+                    child: GestureDetector(
+                      onTap: () => ctrl.pickDates(context),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 12, vertical: 12),
+                        decoration: BoxDecoration(
+                          color: Colors.grey.shade100,
+                          borderRadius: BorderRadius.circular(10),
+                          border: Border.all(color: Colors.grey.shade200),
+                        ),
+                        child: Row(
+                          children: [
+                            Icon(Icons.calendar_month,
+                                color: Colors.grey.shade500, size: 16),
+                            const SizedBox(width: 8),
+                            Text(
+                              ctrl.dateText,
+                              style: TextStyle(
+                                fontSize: 14,
+                                fontWeight: FontWeight.w500,
+                                color: hasDate
+                                    ? LightColors.textColor
+                                    : Colors.grey.shade500,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                  if (hasDate) ...[
+                    const SizedBox(width: 8),
+                    GestureDetector(
+                      onTap: ctrl.clearDates,
+                      child: Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          color: Colors.grey.shade100,
+                          borderRadius: BorderRadius.circular(10),
+                          border: Border.all(color: Colors.grey.shade200),
+                        ),
+                        child: Icon(Icons.close,
+                            size: 16, color: Colors.grey.shade500),
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+            ],
           ),
         ),
       ),
     );
   }
 }
+
+class _PriceChip extends StatelessWidget {
+  final String label;
+  const _PriceChip(this.label);
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        color: LightColors.primaryColor.withValues(alpha: 0.1),
+        borderRadius: BorderRadius.circular(6),
+      ),
+      child: Text(
+        label,
+        style: const TextStyle(
+          fontSize: 12,
+          color: LightColors.primaryColor,
+          fontWeight: FontWeight.w600,
+        ),
+      ),
+    );
+  }
+}
+
+// ── Car list ──────────────────────────────────────────────────────────────────
 
 class _CarList extends StatelessWidget {
   const _CarList({required this.ctrl});
@@ -222,21 +392,20 @@ class _CarList extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(Icons.directions_car_outlined,
-                size: 64, color: Colors.grey.shade400),
+            Icon(Icons.search_off_rounded,
+                size: 56, color: Colors.grey.shade400),
             const SizedBox(height: 12),
             Text(
               'No cars found',
-              style: TextStyle(
-                  fontSize: 16,
-                  color: Colors.grey.shade500,
-                  fontWeight: FontWeight.w500),
+              style: TextStyle(fontSize: 16, color: Colors.grey.shade500),
             ),
-            const SizedBox(height: 4),
-            Text(
-              'Try adjusting your search or dates',
-              style:
-                  TextStyle(fontSize: 13, color: Colors.grey.shade400),
+            const SizedBox(height: 8),
+            TextButton(
+              onPressed: ctrl.clearFilters,
+              child: const Text(
+                'Clear filters',
+                style: TextStyle(color: LightColors.primaryColor),
+              ),
             ),
           ],
         ),
