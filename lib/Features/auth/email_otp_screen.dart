@@ -130,7 +130,7 @@ class EmailOtpScreen extends StatelessWidget {
                         return Container(
                           margin: const EdgeInsets.symmetric(horizontal: 5),
                           width: 48,
-                          height: 54,
+                          height: 56,
                           decoration: BoxDecoration(
                             color: const Color(0xFFF2F2F2),
                             borderRadius: BorderRadius.circular(14),
@@ -138,41 +138,48 @@ class EmailOtpScreen extends StatelessWidget {
                               color: isFocused
                                   ? LightColors.primaryColor
                                   : isFilled
-                                      ? LightColors.primaryColor.withOpacity(0.5)
+                                      ? LightColors.primaryColor
+                                          .withOpacity(0.5)
                                       : const Color(0xFFDDDDDD),
                               width: isFocused ? 2 : 1.5,
                             ),
                             boxShadow: isFocused
                                 ? [
                                     BoxShadow(
-                                      color: LightColors.primaryColor.withOpacity(0.15),
+                                      color: LightColors.primaryColor
+                                          .withOpacity(0.15),
                                       blurRadius: 8,
                                       spreadRadius: 1,
                                     )
                                   ]
                                 : [],
                           ),
-                          child: TextField(
-                            controller: ctrl.boxControllers[i],
-                            focusNode: ctrl.focusNodes[i],
-                            textAlign: TextAlign.center,
-                            keyboardType: TextInputType.number,
-                            inputFormatters: [
-                              FilteringTextInputFormatter.digitsOnly,
-                              LengthLimitingTextInputFormatter(1),
-                            ],
-                            style: TextStyle(
-                              fontSize: 22,
-                              fontWeight: FontWeight.bold,
-                              color: LightColors.textColor,
+                          child: Center(
+                            child: TextField(
+                              controller: ctrl.boxControllers[i],
+                              focusNode: ctrl.focusNodes[i],
+                              textAlign: TextAlign.center,
+                              textAlignVertical: TextAlignVertical.center,
+                              keyboardType: TextInputType.number,
+                              inputFormatters: [
+                                FilteringTextInputFormatter.digitsOnly,
+                                LengthLimitingTextInputFormatter(1),
+                              ],
+                              style: TextStyle(
+                                fontSize: 22,
+                                fontWeight: FontWeight.bold,
+                                color: LightColors.textColor,
+                                height: 1,
+                              ),
+                              decoration: const InputDecoration(
+                                border: InputBorder.none,
+                                counterText: '',
+                                isDense: true,
+                                contentPadding: EdgeInsets.zero,
+                              ),
+                              onChanged: (v) => ctrl.onChanged(v, i),
+                              onTap: () => ctrl.focusNodes[i].requestFocus(),
                             ),
-                            decoration: const InputDecoration(
-                              border: InputBorder.none,
-                              counterText: '',
-                            ),
-                            onChanged: (v) => ctrl.onChanged(v, i),
-                            onTap: () => ctrl.focusNodes[i].requestFocus(),
-                            onEditingComplete: () {},
                           ),
                         );
                       }),
