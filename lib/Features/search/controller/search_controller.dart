@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 
 import 'package:cargo/models/car_model.dart';
@@ -71,11 +72,15 @@ class SearchCarController extends ChangeNotifier {
 
     try {
       final snapshot = await _firestore.collection('cars').get();
-      _allCars = snapshot.docs.map((doc) {
-        final data = doc.data();
-        data['id'] = doc.id;
-        return Car.fromJson(data);
-      }).toList();
+      final currentUid = FirebaseAuth.instance.currentUser?.uid;
+      _allCars = snapshot.docs
+          .map((doc) {
+            final data = doc.data();
+            data['id'] = doc.id;
+            return Car.fromJson(data);
+          })
+          .where((car) => car.ownerId != currentUid)
+          .toList();
       _applyFilters();
     } catch (e) {
       _error = e.toString();
