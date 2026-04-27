@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cargo/core/widgets/location_sheet.dart';
 import 'package:cargo/core/theme/light_color.dart';
 import 'package:cargo/core/dataSource/remote_data/firebase_service.dart';
@@ -122,7 +123,11 @@ class HomeController extends ChangeNotifier {
 
     try {
       final data = await FirebaseService().getCars();
-      _cars = data.map((json) => Car.fromJson(json)).toList();
+      final currentUid = FirebaseAuth.instance.currentUser?.uid;
+      _cars = data
+          .map((json) => Car.fromJson(json))
+          .where((car) => car.ownerId != currentUid)
+          .toList();
       _displayedCars = List.from(_cars); // show all on first load
     } catch (e) {
       _carsError = e.toString();

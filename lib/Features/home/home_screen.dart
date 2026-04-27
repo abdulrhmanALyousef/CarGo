@@ -8,6 +8,7 @@ import 'package:cargo/core/dataSource/remote_data/firebase_service.dart';
 import 'package:cargo/core/dataSource/local_data/preferences_manager.dart';
 import 'package:cargo/Features/auth/login_screen.dart';
 import 'package:cargo/Features/Main/main_screen.dart';
+import 'package:cargo/Features/trips/my_trips_screen.dart';
 
 class HomeScreen extends StatelessWidget {
   const HomeScreen({super.key});
@@ -64,6 +65,13 @@ class HomeScreen extends StatelessWidget {
                                     builder: (_) => const LoginScreen(),
                                   ),
                                 );
+                              } else if (value == 'my_trips') {
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (_) => const MyTripsScreen(),
+                                  ),
+                                );
                               } else if (value == 'logout') {
                                 await FirebaseService().logout();
                                 await PreferencesManager().setBool('isloggedin', false);
@@ -91,7 +99,17 @@ class HomeScreen extends StatelessWidget {
                                       ],
                                     ),
                                   )
-                                else
+                                else ...[
+                                  const PopupMenuItem<String>(
+                                    value: 'my_trips',
+                                    child: Row(
+                                      children: [
+                                        Icon(Icons.luggage_outlined, size: 20, color: LightColors.primaryColor),
+                                        SizedBox(width: 8),
+                                        Text('My Trips'),
+                                      ],
+                                    ),
+                                  ),
                                   const PopupMenuItem<String>(
                                     value: 'logout',
                                     child: Row(
@@ -102,6 +120,7 @@ class HomeScreen extends StatelessWidget {
                                       ],
                                     ),
                                   ),
+                                ],
                               ];
                             },
                             child: ClipOval(
