@@ -354,8 +354,10 @@ class BookingScreen extends StatelessWidget {
                         ScaffoldMessenger.of(context).showSnackBar(
                           const SnackBar(
                             content: Text(
-                                'Booking completed! You can now contact the car owner.'),
-                            duration: Duration(seconds: 4),
+                              'Request sent! You will be notified once the owner approves. '
+                              'Payment is only required after approval.',
+                            ),
+                            duration: Duration(seconds: 5),
                           ),
                         );
                         Navigator.pushAndRemoveUntil(
@@ -378,7 +380,7 @@ class BookingScreen extends StatelessWidget {
                       width: 20,
                       child: CircularProgressIndicator(
                           color: Colors.white, strokeWidth: 2))
-                  : const Text('Continue',
+                  : const Text('Request Booking',
                       style: TextStyle(
                           color: Colors.white,
                           fontWeight: FontWeight.w600,
