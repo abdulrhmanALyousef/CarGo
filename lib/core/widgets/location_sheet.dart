@@ -1,5 +1,6 @@
 
 import 'package:flutter/material.dart';
+import 'package:cargo/core/widgets/app_button.dart';
 
 class LocationSheet extends StatefulWidget {
   const LocationSheet({super.key});
@@ -95,19 +96,12 @@ class _LocationSheetState extends State<LocationSheet> {
             ),
           ),
           const SizedBox(height: 12),
-          SizedBox(
-            width: double.infinity,
-            child: ElevatedButton(
-              onPressed: () => Navigator.pop(context),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF2D5A27),
-                foregroundColor: Colors.white,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(10),
-                ),
-              ),
-              child: const Text('Close'),
-            ),
+          AppButton(
+            text: 'Close',
+            onTap: () => Navigator.pop(context),
+            color: const Color(0xFF2D5A27),
+            borderRadius: 10,
+            height: 48,
           ),
         ],
       ),

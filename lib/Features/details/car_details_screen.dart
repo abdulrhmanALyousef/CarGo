@@ -1,13 +1,14 @@
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_svg/flutter_svg.dart';
 import 'package:shimmer/shimmer.dart';
 import 'package:provider/provider.dart';
 import 'package:cargo/models/car_model.dart';
 import 'package:cargo/models/review_model.dart';
 import 'package:cargo/Features/details/controllers/car_details_controller.dart';
 import 'package:cargo/core/theme/light_color.dart';
+import 'package:cargo/core/widgets/app_button.dart';
+import 'package:cargo/core/widgets/profile_icon_widget.dart';
 import 'package:cargo/Features/reviews/reviews_screen.dart';
 import 'package:cargo/Features/booking/booking_screen.dart';
 
@@ -238,12 +239,9 @@ class CarDetailsScreen extends StatelessWidget {
 
                         Row(
                           children: [
-                            ClipOval(
-                              child: SvgPicture.asset(
-                                'assests/images/manicon.svg',
-                                width: 48,
-                                height: 48,
-                              ),
+                            ProfileIconWidget(
+                              size: 48,
+                              imagePath: 'assets/images/manicon.png',
                             ),
                             const SizedBox(width: 12),
                             Expanded(
@@ -507,60 +505,40 @@ class CarDetailsScreen extends StatelessWidget {
         child: Row(
           children: [
             Expanded(
-              child: OutlinedButton(
-                onPressed: () {},
-                style: OutlinedButton.styleFrom(
-                  side: BorderSide(color: LightColors.textColor.withOpacity(0.3)),
-                  shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(9999)),
-                  padding: const EdgeInsets.symmetric(vertical: 16),
-                ),
-                child: const Text(
-                  'Pre-Booking',
-                  style: TextStyle(
-                      color: LightColors.textColor, fontWeight: FontWeight.w600),
-                ),
+              child: AppButton(
+                text: 'Pre-Booking',
+                onTap: () {},
+                outlined: true,
+                color: LightColors.textColor,
+                textColor: LightColors.textColor,
+                borderColor: LightColors.textColor.withValues(alpha: 0.3),
+                borderRadius: 9999,
+                height: 52,
               ),
             ),
             const SizedBox(width: 12),
             Expanded(
               child: isOwner
-                  ? OutlinedButton(
-                      onPressed: null,
-                      style: OutlinedButton.styleFrom(
-                        side: BorderSide(
-                            color: LightColors.textColor.withOpacity(0.3)),
-                        shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(9999)),
-                        padding: const EdgeInsets.symmetric(vertical: 16),
-                      ),
-                      child: Text(
-                        'Your Car',
-                        style: TextStyle(
-                            color: LightColors.textColor.withOpacity(0.5),
-                            fontWeight: FontWeight.w600),
-                      ),
+                  ? AppButton(
+                      text: 'Your Car',
+                      onTap: null,
+                      outlined: true,
+                      color: LightColors.textColor,
+                      textColor: LightColors.textColor.withValues(alpha: 0.5),
+                      borderColor: LightColors.textColor.withValues(alpha: 0.3),
+                      borderRadius: 9999,
+                      height: 52,
                     )
-                  : ElevatedButton(
-                      onPressed: () {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (_) => BookingScreen(car: model),
-                          ),
-                        );
-                      },
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: LightColors.primaryColor,
-                        shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(9999)),
-                        padding: const EdgeInsets.symmetric(vertical: 16),
+                  : AppButton(
+                      text: 'Book Now',
+                      onTap: () => Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => BookingScreen(car: model),
+                        ),
                       ),
-                      child: const Text(
-                        'Book Now',
-                        style: TextStyle(
-                            color: Colors.white, fontWeight: FontWeight.w600),
-                      ),
+                      borderRadius: 9999,
+                      height: 52,
                     ),
             ),
           ],
@@ -652,12 +630,9 @@ class CarDetailsScreen extends StatelessWidget {
         children: [
           Row(
             children: [
-              ClipOval(
-                child: SvgPicture.asset(
-                  'assets/images/manicon.png',
-                  width: 36,
-                  height: 36,
-                ),
+              ProfileIconWidget(
+                size: 36,
+                imagePath: 'assets/images/manicon.png',
               ),
               const SizedBox(width: 10),
               Expanded(

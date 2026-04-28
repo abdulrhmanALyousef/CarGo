@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:cargo/Features/mycars/my_cars_controller.dart';
 import 'package:cargo/core/theme/light_color.dart';
+import 'package:cargo/core/widgets/app_button.dart';
 import 'package:cargo/models/car_model.dart';
 
 class MyCarsScreen extends StatelessWidget {
@@ -66,12 +67,11 @@ class MyCarsScreen extends StatelessWidget {
               style: TextStyle(fontSize: 16, color: Colors.grey.shade600),
             ),
             const SizedBox(height: 12),
-            ElevatedButton(
-              onPressed: () => context.read<MyCarsController>().fetchMyCars(),
-              style: ElevatedButton.styleFrom(
-                  backgroundColor: LightColors.primaryColor),
-              child:
-                  const Text('Retry', style: TextStyle(color: Colors.white)),
+            AppButton(
+              text: 'Retry',
+              onTap: () => context.read<MyCarsController>().fetchMyCars(),
+              width: 120,
+              height: 44,
             ),
           ],
         ),
@@ -350,42 +350,29 @@ class _RequestRow extends StatelessWidget {
               children: [
                 // Accept
                 Expanded(
-                  child: ElevatedButton(
-                    onPressed: () =>
-                        context.read<MyCarsController>().acceptRequest(
-                              request,
-                              carId,
-                              context,
-                            ),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: LightColors.primaryColor,
-                      shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(8)),
-                      padding: const EdgeInsets.symmetric(vertical: 10),
-                    ),
-                    child: const Text('Accept',
-                        style: TextStyle(
-                            color: Colors.white,
-                            fontWeight: FontWeight.w600,
-                            fontSize: 13)),
+                  child: AppButton(
+                    text: 'Accept',
+                    onTap: () => context.read<MyCarsController>().acceptRequest(
+                          request,
+                          carId,
+                          context,
+                        ),
+                    borderRadius: 8,
+                    height: 44,
+                    fontSize: 13,
                   ),
                 ),
                 const SizedBox(width: 8),
-                // Reject
                 Expanded(
-                  child: OutlinedButton(
-                    onPressed: () => _confirmReject(context),
-                    style: OutlinedButton.styleFrom(
-                      side: const BorderSide(color: Colors.red),
-                      shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(8)),
-                      padding: const EdgeInsets.symmetric(vertical: 10),
-                    ),
-                    child: const Text('Reject',
-                        style: TextStyle(
-                            color: Colors.red,
-                            fontWeight: FontWeight.w600,
-                            fontSize: 13)),
+                  child: AppButton(
+                    text: 'Reject',
+                    onTap: () => _confirmReject(context),
+                    outlined: true,
+                    color: Colors.red,
+                    textColor: Colors.red,
+                    borderRadius: 8,
+                    height: 44,
+                    fontSize: 13,
                   ),
                 ),
               ],

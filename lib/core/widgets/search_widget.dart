@@ -2,6 +2,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:cargo/Features/home/controllers/home_controller.dart';
+import 'package:cargo/core/widgets/app_button.dart';
 import 'package:cargo/core/theme/light_color.dart';
 
 class SearchWidget extends StatelessWidget {
@@ -93,24 +94,11 @@ class SearchWidget extends StatelessWidget {
           const SizedBox(height: 14),
 
           // Search Button
-          SizedBox(
-            width: double.infinity,
-            child: ElevatedButton(
-              onPressed: () => ctrl.search(context),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: LightColors.primaryColor,
-                foregroundColor: LightColors.textColor,
-                padding: const EdgeInsets.symmetric(vertical: 14),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(14),
-                ),
-                elevation: 0,
-              ),
-              child: const Text(
-                'Search',
-                style: TextStyle(fontSize: 16),
-              ),
-            ),
+          AppButton(
+            text: 'Search',
+            onTap: () => ctrl.search(context),
+            borderRadius: 14,
+            fontSize: 16,
           ),
         ],
       ),
