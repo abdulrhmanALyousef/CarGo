@@ -1,4 +1,5 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:cargo/models/car_model.dart';
 import 'package:cargo/core/theme/light_color.dart';
@@ -114,11 +115,15 @@ class CarListController extends ChangeNotifier {
           .collection('cars')
           .where('city', isEqualTo: cityName)
           .get();
-      _all = snapshot.docs.map((doc) {
-        final data = doc.data();
-        data['id'] = doc.id;
-        return Car.fromJson(data);
-      }).toList();
+      final currentUid = FirebaseAuth.instance.currentUser?.uid;
+      _all = snapshot.docs
+          .map((doc) {
+            final data = doc.data();
+            data['id'] = doc.id;
+            return Car.fromJson(data);
+          })
+          .where((car) => car.ownerId != currentUid)
+          .toList();
       _applyFilters();
     } catch (e) {
       _error = e.toString();
