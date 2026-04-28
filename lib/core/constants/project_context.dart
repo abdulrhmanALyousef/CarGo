@@ -60,11 +60,11 @@
 //     │   └── siginup_screen.dart
 //     ├── home/
 //     │   ├── controllers/home_controller.dart
-//     │   ├── home_screen.dart
+//     │   ├── home_screen.dart          Popup: My Trips | My Cars | Log Out
 //     │   └── widgets/car_card.dart
 //     ├── details/
 //     │   ├── controllers/car_details_controller.dart
-//     │   └── car_details_screen.dart   Book Now → BookingScreen
+//     │   └── car_details_screen.dart   Book Now → BookingScreen (hidden for owner)
 //     ├── booking/
 //     │   ├── booking_controller.dart   Provider — auth guard + Firestore
 //     │   └── booking_screen.dart       Date/time pickers + price + Continue
@@ -72,6 +72,15 @@
 //     │   ├── controller/search_controller.dart   Direct Firestore usage
 //     │   ├── presentation/search_screen.dart
 //     │   └── widgets/ (search_bar_widget, search_filter_panel, search_header)
+//     ├── trips/
+//     │   ├── my_trips_controller.dart  Real-time stream; newlyApprovedEntry popup
+//     │   └── my_trips_screen.dart      StatefulWidget inner body for popup
+//     ├── mycars/
+//     │   ├── my_cars_controller.dart   Owner view: cars + booking requests
+//     │   └── my_cars_screen.dart       Accept / Reject requests per car
+//     ├── cars/
+//     │   ├── car_list_controller.dart  City filter — owner's cars excluded
+//     │   └── car_list_screen.dart
 //     ├── profile/presentation/profile_screen.dart
 //     ├── cites/presentation/cities_screen.dart
 //     ├── chats/presentation/chats_screen.dart
@@ -397,18 +406,36 @@
 // SECTION 10 — BOOKING FEATURE
 // ─────────────────────────────────────────────────────────────────────────────
 //
+// ── Owner visibility rule ─────────────────────────────────────────────────────
+//
+//   An owner NEVER sees their own car in:
+//     - Home screen     (HomeController.fetchCars filters car.ownerId == uid)
+//     - Search results  (SearchCarController.fetchCars same filter)
+//     - City filter     (CarListController.fetchCars same filter)
+//     - Car Details     (_buildBottomBar shows "Your Car" disabled button)
+//     - Booking flow    (BookingController.createBooking guards car.ownerId == uid)
+//
+//   Owner sees their own cars ONLY inside My Cars screen.
+//
 // ── Full booking lifecycle ────────────────────────────────────────────────────
 //
 //   1. Renter selects dates → taps "Request Booking"
 //        BookingController.createBooking() writes status='pending' (NO payment).
-//   2. Owner sees pending requests (future owner dashboard) and approves one.
-//        Owner updates status → 'approved'.
-//   3. Renter sees 'approved' in My Trips → taps "Pay Now"
-//        MyTripsController.payForBooking() → Stripe → status='confirmed'.
+//   2. Owner opens My Cars, sees pending requests per car, taps "Accept".
+//        MyCarsController.acceptRequest()
+//          a. _hasAcceptedOverlap() — ensures no other approved/confirmed booking
+//             overlaps these dates (one-renter-per-range rule).
+//          b. Firestore update → status='approved'.
+//   3. Renter receives real-time popup (MyTripsController stream detects transition
+//        pending → approved, sets _newlyApprovedEntry).
+//        MyTripsScreen shows payment dialog with "Complete" button.
+//        Renter taps "Complete" → MyTripsController.payForBooking() → Stripe
+//        → status='confirmed'.
 //   4. Confirmed booking LOCKS the dates. All other pending requests for those
 //        dates remain in the owner's queue but the car is now unavailable.
 //   5. Renter or owner can cancel at 'pending' or 'approved' stage.
-//        MyTripsController.cancelBooking() → status='cancelled' → removed from My Trips.
+//        MyTripsController.cancelBooking() → status='cancelled'.
+//        MyCarsController.rejectRequest() → status='cancelled'.
 //
 // ── Availability rule ─────────────────────────────────────────────────────────
 //
@@ -418,56 +445,48 @@
 //   The calendar only greys out days that have a confirmed booking.
 //
 // ── BookingController — lib/Features/booking/booking_controller.dart ──────────
-//   No separate service file. Firestore logic lives here (approach B).
-//
-//   State:
-//     _startDate, _endDate (DateTime?)
-//     _pickupTime (TimeOfDay?)
-//     _isLoading (bool)
-//     _error (String?)
-//     _firestoreRulesError (bool) ← true when Firestore returns permission-denied
-//     _bookedDates (Set<DateTime>) ← ONLY confirmed bookings
-//
-//   isAuthenticated: FirebaseAuth.instance.currentUser != null
-//     → Checked before EVERY Firestore call.
 //
 //   createBooking() execution order:
 //     1. isAuthenticated          — stops if not logged in
-//     2. _validate()              — local: dates, time, availability window
-//     3. _hasRenterOverlap()      — Firestore READ: does renter already have an
-//                                   active booking that overlaps these dates?
-//     4. _hasCarConfirmedOverlap() — Firestore READ: does the car have a confirmed
-//                                   booking for these dates?
-//     5. _firestore.set()         — Firestore WRITE: status='pending', no payment
+//     2. owner guard              — car.ownerId == uid → blocked
+//     3. _validate()              — local: dates, time, availability window
+//     4. _hasRenterOverlap()      — Firestore READ
+//     5. _hasCarConfirmedOverlap() — Firestore READ
+//     6. _firestore.set()         — Firestore WRITE: status='pending', no payment
 //
-//   loadAvailability() — only queries bookings with status='confirmed'.
+// ── MyCarsController — lib/Features/mycars/my_cars_controller.dart ────────────
 //
-//   Error handling:
-//     FirebaseException code 'permission-denied' → sets _firestoreRulesError = true
-//     BookingScreen shows a red inline banner with the exact fix.
+//   fetchMyCars()
+//     Loads cars where ownerId == uid, then pending/approved bookings per car,
+//     then fetches customerName for each booking.
+//
+//   acceptRequest(entry, carId, context)
+//     1. _hasAcceptedOverlap() — blocks if approved/confirmed booking overlaps
+//     2. Firestore update → status='approved'
+//     3. Local state update
+//
+//   rejectRequest(entry, carId, context)
+//     Firestore update → status='cancelled', removed from local list.
 //
 // ── MyTripsController — lib/Features/trips/my_trips_controller.dart ───────────
 //
-//   cancelBooking(bookingId)
-//     Firestore update → status='cancelled'
-//     Removes entry from _trips list immediately (no reload needed).
+//   _initData() → fetchTrips() then _startStream()
+//
+//   Real-time stream (Firestore .snapshots()):
+//     Detects 'pending' → 'approved' transitions.
+//     Sets _newlyApprovedEntry; screen reads and shows payment popup.
+//     Call consumeApprovedNotification() after popup is shown to clear the flag.
 //
 //   payForBooking(entry, context)
 //     1. _hasCarConfirmedOverlap() — re-check before charging the card
 //     2. StripeService().verifyCard() — payment
 //     3. Firestore update → status='confirmed'
-//     4. Updates _trips list in-place (no reload).
+//     4. Updates _trips list in-place.
 //
-//   fetchTrips() — filters out 'cancelled' bookings locally.
-//   _actionBookingId (String?) — tracks which booking is loading; used by
-//     My Trips screen to show a per-card spinner.
-//
-// ── BookingScreen — lib/Features/booking/booking_screen.dart ─────────────────
-//   - !ctrl.isAuthenticated → Login Required wall (Log In button → LoginScreen)
-//   - ctrl.firestoreRulesError → Red banner explaining the Firestore rules issue
-//   - Calendar only greys confirmed-booked days
-//   - "Request Booking" button (was "Continue") — no payment triggered
-//   - Success SnackBar explains: owner must approve before payment
+// ── MyTripsScreen — lib/Features/trips/my_trips_screen.dart ──────────────────
+//   Outer: StatelessWidget with ChangeNotifierProvider.
+//   Inner: _MyTripsBody (StatefulWidget) — uses addPostFrameCallback to show
+//   the payment dialog when _newlyApprovedEntry is set.
 
 // ─────────────────────────────────────────────────────────────────────────────
 // SECTION 11 — REUSABLE CORE WIDGETS

@@ -12,21 +12,115 @@ class MyTripsScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     return ChangeNotifierProvider(
       create: (_) => MyTripsController(),
-      child: Builder(
-        builder: (context) {
-          final ctrl = context.watch<MyTripsController>();
+      child: const _MyTripsBody(),
+    );
+  }
+}
 
-          return Scaffold(
-            appBar: AppBar(
-              title: const Text('My Trips'),
-              leading: BackButton(onPressed: () => Navigator.pop(context)),
+// ── Inner body — StatefulWidget so PostFrameCallback can trigger the popup ────
+
+class _MyTripsBody extends StatefulWidget {
+  const _MyTripsBody();
+
+  @override
+  State<_MyTripsBody> createState() => _MyTripsBodyState();
+}
+
+class _MyTripsBodyState extends State<_MyTripsBody> {
+  @override
+  Widget build(BuildContext context) {
+    final ctrl = context.watch<MyTripsController>();
+
+    // When a booking transitions to 'approved' via real-time update,
+    // show the payment popup after the current frame finishes.
+    if (ctrl.newlyApprovedEntry != null) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted && ctrl.newlyApprovedEntry != null) {
+          _showApprovedDialog(context, ctrl.newlyApprovedEntry!);
+          ctrl.consumeApprovedNotification();
+        }
+      });
+    }
+
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('My Trips'),
+        leading: BackButton(onPressed: () => Navigator.pop(context)),
+      ),
+      body: _buildBody(context, ctrl),
+    );
+  }
+
+  // ── Approved Payment Popup ────────────────────────────────────────────────
+  void _showApprovedDialog(BuildContext context, TripEntry entry) {
+    final carName = entry.car != null
+        ? '${entry.car!.brand} ${entry.car!.model}'
+        : 'your car';
+    final booking = entry.booking;
+
+    showDialog<void>(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: Row(
+          children: [
+            const Icon(Icons.check_circle, color: Colors.green, size: 24),
+            const SizedBox(width: 8),
+            const Flexible(child: Text('Booking Approved!')),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Your request for $carName has been approved by the owner.',
+              style: const TextStyle(fontSize: 14),
             ),
-            body: _buildBody(context, ctrl),
-          );
-        },
+            const SizedBox(height: 12),
+            _DialogInfoRow(
+              icon: Icons.calendar_today_outlined,
+              text:
+                  '${_fmt(booking.startDate)}  →  ${_fmt(booking.endDate)}',
+            ),
+            const SizedBox(height: 6),
+            _DialogInfoRow(
+              icon: Icons.attach_money_rounded,
+              text: 'SAR ${booking.totalPrice.toStringAsFixed(0)} total',
+            ),
+            const SizedBox(height: 12),
+            const Text(
+              'Complete your payment now to confirm the booking.',
+              style: TextStyle(fontSize: 13, color: Colors.grey),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Later'),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              Navigator.pop(context);
+              context.read<MyTripsController>().payForBooking(entry, context);
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: LightColors.primaryColor,
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(10)),
+            ),
+            child: const Text('Complete',
+                style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600)),
+          ),
+        ],
       ),
     );
   }
+
+  String _fmt(DateTime d) =>
+      '${d.day.toString().padLeft(2, '0')}.${d.month.toString().padLeft(2, '0')}.${d.year}';
 
   // ── Body ──────────────────────────────────────────────────────────────────
 
@@ -430,6 +524,28 @@ class _InfoRow extends StatelessWidget {
             text,
             style: TextStyle(fontSize: 13, color: Colors.grey.shade700),
           ),
+        ),
+      ],
+    );
+  }
+}
+
+// ── Dialog Info Row ───────────────────────────────────────────────────────────
+
+class _DialogInfoRow extends StatelessWidget {
+  const _DialogInfoRow({required this.icon, required this.text});
+
+  final IconData icon;
+  final String text;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        Icon(icon, size: 14, color: LightColors.primaryColor),
+        const SizedBox(width: 6),
+        Expanded(
+          child: Text(text, style: const TextStyle(fontSize: 13)),
         ),
       ],
     );

@@ -9,6 +9,7 @@ import 'package:cargo/core/dataSource/local_data/preferences_manager.dart';
 import 'package:cargo/Features/auth/login_screen.dart';
 import 'package:cargo/Features/Main/main_screen.dart';
 import 'package:cargo/Features/trips/my_trips_screen.dart';
+import 'package:cargo/Features/mycars/my_cars_screen.dart';
 
 class HomeScreen extends StatelessWidget {
   const HomeScreen({super.key});
@@ -72,6 +73,13 @@ class HomeScreen extends StatelessWidget {
                                     builder: (_) => const MyTripsScreen(),
                                   ),
                                 );
+                              } else if (value == 'my_cars') {
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (_) => const MyCarsScreen(),
+                                  ),
+                                );
                               } else if (value == 'logout') {
                                 await FirebaseService().logout();
                                 await PreferencesManager().setBool('isloggedin', false);
@@ -107,6 +115,16 @@ class HomeScreen extends StatelessWidget {
                                         Icon(Icons.luggage_outlined, size: 20, color: LightColors.primaryColor),
                                         SizedBox(width: 8),
                                         Text('My Trips'),
+                                      ],
+                                    ),
+                                  ),
+                                  const PopupMenuItem<String>(
+                                    value: 'my_cars',
+                                    child: Row(
+                                      children: [
+                                        Icon(Icons.car_rental, size: 20, color: LightColors.primaryColor),
+                                        SizedBox(width: 8),
+                                        Text('My Cars'),
                                       ],
                                     ),
                                   ),

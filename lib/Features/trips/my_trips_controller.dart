@@ -1,5 +1,7 @@
 // ignore_for_file: avoid_print, use_build_context_synchronously
 
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -28,16 +30,126 @@ class MyTripsController extends ChangeNotifier {
   // The UI uses this to show a per-card loading indicator.
   String? _actionBookingId;
 
+  // Set when a booking transitions from 'pending' → 'approved' via real-time
+  // stream. The screen reads this and shows a payment popup, then calls
+  // consumeApprovedNotification() to clear it.
+  TripEntry? _newlyApprovedEntry;
+
+  // Tracks the last-known status for each booking so we can detect transitions.
+  final Map<String, String> _previousStatuses = {};
+
+  // Real-time Firestore stream subscription.
+  StreamSubscription<QuerySnapshot>? _bookingsSubscription;
+
   // ── Getters ───────────────────────────────────────────────────────────────
   List<TripEntry> get trips => _trips;
   bool get isLoading => _isLoading;
   String? get error => _error;
   String? get actionBookingId => _actionBookingId;
+  TripEntry? get newlyApprovedEntry => _newlyApprovedEntry;
 
   bool get isAuthenticated => FirebaseAuth.instance.currentUser != null;
 
   MyTripsController() {
-    fetchTrips();
+    _initData();
+  }
+
+  @override
+  void dispose() {
+    _bookingsSubscription?.cancel();
+    super.dispose();
+  }
+
+  // ── Initialisation ────────────────────────────────────────────────────────
+  // Fetch trips first, then start the real-time stream so _previousStatuses
+  // is populated before the first stream event arrives.
+  Future<void> _initData() async {
+    await fetchTrips();
+    _startStream();
+  }
+
+  // ── Real-Time Stream ──────────────────────────────────────────────────────
+  // Listens for changes to the user's bookings. On a 'pending' → 'approved'
+  // transition, sets _newlyApprovedEntry so the UI can show a payment popup.
+  void _startStream() {
+    if (!isAuthenticated) return;
+    final uid = FirebaseAuth.instance.currentUser!.uid;
+
+    _bookingsSubscription = _firestore
+        .collection('bookings')
+        .where('userId', isEqualTo: uid)
+        .snapshots()
+        .listen(
+          _handleSnapshot,
+          onError: (e) => print('[MyTripsController] stream error: $e'),
+        );
+  }
+
+  void _handleSnapshot(QuerySnapshot snapshot) {
+    bool changed = false;
+
+    for (final change in snapshot.docChanges) {
+      final data = change.doc.data() as Map<String, dynamic>;
+      final bookingId = change.doc.id;
+      final newStatus = data['status'] as String? ?? '';
+
+      if (change.type == DocumentChangeType.added) {
+        // Seed the known-status map from the initial snapshot.
+        _previousStatuses[bookingId] = newStatus;
+        continue;
+      }
+
+      if (change.type == DocumentChangeType.modified) {
+        final prevStatus = _previousStatuses[bookingId] ?? '';
+
+        if (prevStatus == 'pending' && newStatus == 'approved') {
+          // Booking was approved while renter is online — trigger popup.
+          final idx =
+              _trips.indexWhere((e) => e.booking.bookingId == bookingId);
+          if (idx != -1) {
+            final updatedBooking =
+                Booking.fromMap({..._trips[idx].booking.toMap(), 'status': 'approved'});
+            final updated =
+                TripEntry(booking: updatedBooking, car: _trips[idx].car);
+            _trips[idx] = updated;
+            _newlyApprovedEntry = updated;
+            changed = true;
+          }
+        } else if (newStatus == 'cancelled') {
+          _trips.removeWhere((e) => e.booking.bookingId == bookingId);
+          changed = true;
+        } else if (newStatus != prevStatus) {
+          // Generic status update — reflect in the list.
+          final idx =
+              _trips.indexWhere((e) => e.booking.bookingId == bookingId);
+          if (idx != -1) {
+            final updatedBooking =
+                Booking.fromMap({..._trips[idx].booking.toMap(), 'status': newStatus});
+            _trips[idx] =
+                TripEntry(booking: updatedBooking, car: _trips[idx].car);
+            changed = true;
+          }
+        }
+
+        _previousStatuses[bookingId] = newStatus;
+      }
+
+      if (change.type == DocumentChangeType.removed) {
+        _trips.removeWhere((e) => e.booking.bookingId == bookingId);
+        _previousStatuses.remove(bookingId);
+        changed = true;
+      }
+    }
+
+    if (changed) notifyListeners();
+  }
+
+  // ── Consume Approved Notification ─────────────────────────────────────────
+  // Called by the UI after the payment popup has been shown so the flag is
+  // cleared and the popup is not re-shown on the next rebuild.
+  void consumeApprovedNotification() {
+    _newlyApprovedEntry = null;
+    notifyListeners();
   }
 
   // ── Data Fetch ────────────────────────────────────────────────────────────
@@ -63,6 +175,11 @@ class MyTripsController extends ChangeNotifier {
           .map((doc) => Booking.fromMap(doc.data()))
           .where((b) => b.status != 'cancelled')
           .toList();
+
+      // Seed the known-status map so the stream can detect future transitions.
+      for (final b in bookings) {
+        _previousStatuses[b.bookingId] = b.status;
+      }
 
       // Resolve car details for each booking.
       final entries = <TripEntry>[];
@@ -179,9 +296,8 @@ class MyTripsController extends ChangeNotifier {
         (e) => e.booking.bookingId == entry.booking.bookingId,
       );
       if (idx != -1) {
-        final updatedMap = entry.booking.toMap();
-        updatedMap['status'] = 'confirmed';
-        final updatedBooking = Booking.fromMap(updatedMap);
+        final updatedBooking =
+            Booking.fromMap({...entry.booking.toMap(), 'status': 'confirmed'});
         _trips[idx] = TripEntry(booking: updatedBooking, car: entry.car);
       }
       notifyListeners();

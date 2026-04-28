@@ -316,6 +316,15 @@ class BookingController extends ChangeNotifier {
       return false;
     }
 
+    // Owner cannot book their own car
+    final currentUid = FirebaseAuth.instance.currentUser!.uid;
+    if (car.ownerId == currentUid) {
+      _error = 'You cannot book your own car';
+      notifyListeners();
+      _showError(context, _error!);
+      return false;
+    }
+
     final validationError = _validate();
     if (validationError != null) {
       _error = validationError;
