@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:cargo/Features/trips/my_trips_controller.dart';
 import 'package:cargo/core/theme/light_color.dart';
+import 'package:cargo/models/booking_model.dart';
 
 class MyTripsScreen extends StatelessWidget {
   const MyTripsScreen({super.key});
@@ -83,7 +84,7 @@ class MyTripsScreen extends StatelessWidget {
             ),
             SizedBox(height: 8),
             Text(
-              'Your bookings will appear here.',
+              'Your booking requests will appear here.',
               style: TextStyle(fontSize: 14, color: Colors.grey),
             ),
           ],
@@ -99,8 +100,7 @@ class MyTripsScreen extends StatelessWidget {
         itemCount: ctrl.trips.length,
         separatorBuilder: (_, __) => const SizedBox(height: 12),
         itemBuilder: (context, index) {
-          final entry = ctrl.trips[index];
-          return _TripCard(entry: entry);
+          return _TripCard(entry: ctrl.trips[index]);
         },
       ),
     );
@@ -116,12 +116,15 @@ class _TripCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final ctrl = context.watch<MyTripsController>();
     final booking = entry.booking;
     final car = entry.car;
+    final isProcessing = ctrl.actionBookingId == booking.bookingId;
 
     final imageUrl =
         (car != null && car.images.isNotEmpty) ? car.images.first : '';
-    final carName = car != null ? '${car.brand} ${car.model}' : 'Unknown Car';
+    final carName =
+        car != null ? '${car.brand} ${car.model}' : 'Unknown Car';
 
     return Card(
       elevation: 2,
@@ -129,7 +132,7 @@ class _TripCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // ── Car image ────────────────────────────────────────────────────
+          // ── Car image ──────────────────────────────────────────────────────
           ClipRRect(
             borderRadius:
                 const BorderRadius.vertical(top: Radius.circular(12)),
@@ -139,21 +142,13 @@ class _TripCard extends StatelessWidget {
                     height: 160,
                     width: double.infinity,
                     fit: BoxFit.cover,
-                    placeholder: (_, __) => Container(
-                      height: 160,
-                      color: Colors.grey.shade200,
-                      child: const Center(
-                        child: CircularProgressIndicator(
-                          color: LightColors.primaryColor,
-                        ),
-                      ),
-                    ),
+                    placeholder: (_, __) => _imagePlaceholder(),
                     errorWidget: (_, __, ___) => _imagePlaceholder(),
                   )
                 : _imagePlaceholder(),
           ),
 
-          // ── Details ───────────────────────────────────────────────────────
+          // ── Details ────────────────────────────────────────────────────────
           Padding(
             padding: const EdgeInsets.all(14),
             child: Column(
@@ -180,7 +175,6 @@ class _TripCard extends StatelessWidget {
 
                 const SizedBox(height: 10),
 
-                // Dates row
                 _InfoRow(
                   icon: Icons.calendar_today_outlined,
                   text:
@@ -189,7 +183,6 @@ class _TripCard extends StatelessWidget {
 
                 const SizedBox(height: 6),
 
-                // Pickup time
                 _InfoRow(
                   icon: Icons.access_time_rounded,
                   text: 'Pickup at ${booking.pickupTime}',
@@ -197,18 +190,173 @@ class _TripCard extends StatelessWidget {
 
                 const SizedBox(height: 6),
 
-                // Total price
                 _InfoRow(
                   icon: Icons.attach_money_rounded,
-                  text:
-                      'SAR ${booking.totalPrice.toStringAsFixed(0)} total',
+                  text: 'SAR ${booking.totalPrice.toStringAsFixed(0)} total',
                 ),
+
+                // ── Owner-approval hint (pending only) ────────────────────
+                if (booking.status == 'pending') ...[
+                  const SizedBox(height: 10),
+                  Container(
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+                    decoration: BoxDecoration(
+                      color: Colors.orange.shade50,
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: Colors.orange.shade200),
+                    ),
+                    child: Row(
+                      children: [
+                        Icon(Icons.hourglass_top_rounded,
+                            size: 14, color: Colors.orange.shade700),
+                        const SizedBox(width: 6),
+                        Expanded(
+                          child: Text(
+                            'Waiting for the owner to approve your request.',
+                            style: TextStyle(
+                                fontSize: 12, color: Colors.orange.shade800),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+
+                // ── Payment prompt (approved only) ────────────────────────
+                if (booking.status == 'approved') ...[
+                  const SizedBox(height: 10),
+                  Container(
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+                    decoration: BoxDecoration(
+                      color: Colors.blue.shade50,
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: Colors.blue.shade200),
+                    ),
+                    child: Row(
+                      children: [
+                        Icon(Icons.check_circle_outline,
+                            size: 14, color: Colors.blue.shade700),
+                        const SizedBox(width: 6),
+                        Expanded(
+                          child: Text(
+                            'Owner approved! Complete payment to confirm.',
+                            style: TextStyle(
+                                fontSize: 12, color: Colors.blue.shade800),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+
+                const SizedBox(height: 12),
+
+                // ── Action Buttons ────────────────────────────────────────
+                if (isProcessing)
+                  const Center(
+                    child: Padding(
+                      padding: EdgeInsets.symmetric(vertical: 8),
+                      child: CircularProgressIndicator(
+                        color: LightColors.primaryColor,
+                        strokeWidth: 2,
+                      ),
+                    ),
+                  )
+                else
+                  _buildActionButtons(context, booking),
               ],
             ),
           ),
         ],
       ),
     );
+  }
+
+  Widget _buildActionButtons(BuildContext context, Booking booking) {
+    final status = booking.status;
+    final canCancel = status == 'pending' || status == 'approved';
+    final canPay = status == 'approved';
+
+    if (!canCancel && !canPay) return const SizedBox.shrink();
+
+    return Row(
+      children: [
+        // ── Pay Now (approved only) ─────────────────────────────────────
+        if (canPay) ...[
+          Expanded(
+            child: ElevatedButton.icon(
+              onPressed: () => context
+                  .read<MyTripsController>()
+                  .payForBooking(entry, context),
+              icon: const Icon(Icons.payment, size: 16, color: Colors.white),
+              label: const Text('Pay Now',
+                  style: TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.w600,
+                      fontSize: 14)),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: LightColors.primaryColor,
+                shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(10)),
+                padding: const EdgeInsets.symmetric(vertical: 12),
+              ),
+            ),
+          ),
+          const SizedBox(width: 10),
+        ],
+
+        // ── Cancel (pending or approved) ────────────────────────────────
+        if (canCancel)
+          Expanded(
+            child: OutlinedButton.icon(
+              onPressed: () => _confirmCancel(context, booking.bookingId),
+              icon: const Icon(Icons.cancel_outlined,
+                  size: 16, color: Colors.red),
+              label: const Text('Cancel',
+                  style: TextStyle(
+                      color: Colors.red,
+                      fontWeight: FontWeight.w600,
+                      fontSize: 14)),
+              style: OutlinedButton.styleFrom(
+                side: const BorderSide(color: Colors.red),
+                shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(10)),
+                padding: const EdgeInsets.symmetric(vertical: 12),
+              ),
+            ),
+          ),
+      ],
+    );
+  }
+
+  void _confirmCancel(BuildContext context, String bookingId) {
+    showDialog<bool>(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: const Text('Cancel Booking'),
+        content: const Text(
+          'Are you sure you want to cancel this booking request? '
+          'This action cannot be undone.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Keep'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            style: TextButton.styleFrom(foregroundColor: Colors.red),
+            child: const Text('Cancel Booking'),
+          ),
+        ],
+      ),
+    ).then((confirmed) {
+      if (confirmed == true && context.mounted) {
+        context.read<MyTripsController>().cancelBooking(bookingId, context);
+      }
+    });
   }
 
   Widget _imagePlaceholder() {
@@ -239,6 +387,7 @@ class _StatusBadge extends StatelessWidget {
   Widget build(BuildContext context) {
     final (color, label) = switch (status) {
       'confirmed' => (Colors.green.shade600, 'Confirmed'),
+      'approved' => (Colors.blue.shade600, 'Approved'),
       'cancelled' => (Colors.red.shade600, 'Cancelled'),
       _ => (Colors.orange.shade700, 'Pending'),
     };

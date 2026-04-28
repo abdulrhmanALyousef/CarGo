@@ -384,7 +384,11 @@
 //
 // Booking (booking_model.dart) — import: cloud_firestore
 //   Fields: bookingId, userId, carId, pickupTime (String)
-//           status: 'pending' | 'confirmed' | 'cancelled'
+//           status: 'pending' | 'approved' | 'confirmed' | 'cancelled'
+//             'pending'   → request submitted, awaiting owner decision
+//             'approved'  → owner accepted, renter must now pay
+//             'confirmed' → renter paid, booking active, dates are LOCKED
+//             'cancelled' → renter or owner cancelled (hidden from My Trips)
 //           startDate, endDate, createdAt (DateTime)
 //           totalPrice (double)
 //   Methods: fromMap(Map) / toMap() → Map
@@ -393,11 +397,28 @@
 // SECTION 10 — BOOKING FEATURE
 // ─────────────────────────────────────────────────────────────────────────────
 //
-// Flow:
-//   CarDetailsScreen → (Book Now) → BookingScreen → (Continue) → ServicesScreen
+// ── Full booking lifecycle ────────────────────────────────────────────────────
 //
-// BookingController — lib/Features/booking/booking_controller.dart
-//   No separate BookingService file. Follows SearchCarController pattern.
+//   1. Renter selects dates → taps "Request Booking"
+//        BookingController.createBooking() writes status='pending' (NO payment).
+//   2. Owner sees pending requests (future owner dashboard) and approves one.
+//        Owner updates status → 'approved'.
+//   3. Renter sees 'approved' in My Trips → taps "Pay Now"
+//        MyTripsController.payForBooking() → Stripe → status='confirmed'.
+//   4. Confirmed booking LOCKS the dates. All other pending requests for those
+//        dates remain in the owner's queue but the car is now unavailable.
+//   5. Renter or owner can cancel at 'pending' or 'approved' stage.
+//        MyTripsController.cancelBooking() → status='cancelled' → removed from My Trips.
+//
+// ── Availability rule ─────────────────────────────────────────────────────────
+//
+//   ONLY 'confirmed' bookings lock calendar dates.
+//   Multiple 'pending' or 'approved' requests for the same car and dates
+//   are allowed simultaneously — the owner chooses which renter to accept.
+//   The calendar only greys out days that have a confirmed booking.
+//
+// ── BookingController — lib/Features/booking/booking_controller.dart ──────────
+//   No separate service file. Firestore logic lives here (approach B).
 //
 //   State:
 //     _startDate, _endDate (DateTime?)
@@ -405,28 +426,48 @@
 //     _isLoading (bool)
 //     _error (String?)
 //     _firestoreRulesError (bool) ← true when Firestore returns permission-denied
+//     _bookedDates (Set<DateTime>) ← ONLY confirmed bookings
 //
 //   isAuthenticated: FirebaseAuth.instance.currentUser != null
 //     → Checked before EVERY Firestore call.
 //
-//   createBooking() execution order (MUST NOT CHANGE):
-//     1. isAuthenticated    — stops the request if not logged in
-//     2. _validate()        — local only: dates, time, availability window
-//     3. _hasOverlap()      — Firestore READ by carId (reads other users' bookings)
-//     4. _firestore.set()   — Firestore WRITE
+//   createBooking() execution order:
+//     1. isAuthenticated          — stops if not logged in
+//     2. _validate()              — local: dates, time, availability window
+//     3. _hasRenterOverlap()      — Firestore READ: does renter already have an
+//                                   active booking that overlaps these dates?
+//     4. _hasCarConfirmedOverlap() — Firestore READ: does the car have a confirmed
+//                                   booking for these dates?
+//     5. _firestore.set()         — Firestore WRITE: status='pending', no payment
+//
+//   loadAvailability() — only queries bookings with status='confirmed'.
 //
 //   Error handling:
 //     FirebaseException code 'permission-denied' → sets _firestoreRulesError = true
 //     BookingScreen shows a red inline banner with the exact fix.
 //
-// BookingScreen — lib/Features/booking/booking_screen.dart
+// ── MyTripsController — lib/Features/trips/my_trips_controller.dart ───────────
+//
+//   cancelBooking(bookingId)
+//     Firestore update → status='cancelled'
+//     Removes entry from _trips list immediately (no reload needed).
+//
+//   payForBooking(entry, context)
+//     1. _hasCarConfirmedOverlap() — re-check before charging the card
+//     2. StripeService().verifyCard() — payment
+//     3. Firestore update → status='confirmed'
+//     4. Updates _trips list in-place (no reload).
+//
+//   fetchTrips() — filters out 'cancelled' bookings locally.
+//   _actionBookingId (String?) — tracks which booking is loading; used by
+//     My Trips screen to show a per-card spinner.
+//
+// ── BookingScreen — lib/Features/booking/booking_screen.dart ─────────────────
 //   - !ctrl.isAuthenticated → Login Required wall (Log In button → LoginScreen)
 //   - ctrl.firestoreRulesError → Red banner explaining the Firestore rules issue
-//   - Date pickers styled identically to SearchWidget (same colours and radii)
-//   - SearchWidget is NOT embedded — it is tightly coupled to HomeController
-//   - Shows availability window banner if car.availableFrom/To are set
-//   - Shows price summary when dates are selected
-//   - Continue → ctrl.createBooking() → on success → ServicesScreen
+//   - Calendar only greys confirmed-booked days
+//   - "Request Booking" button (was "Continue") — no payment triggered
+//   - Success SnackBar explains: owner must approve before payment
 
 // ─────────────────────────────────────────────────────────────────────────────
 // SECTION 11 — REUSABLE CORE WIDGETS

@@ -1,4 +1,4 @@
-// ignore_for_file: avoid_print
+// ignore_for_file: avoid_print, use_build_context_synchronously
 
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -6,7 +6,6 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:cargo/models/car_model.dart';
 import 'package:cargo/models/booking_model.dart';
 import 'package:cargo/core/theme/light_color.dart';
-import 'package:cargo/services/stripe_service.dart';
 
 // ════════════════════════════════════════════════════════════════════════════
 // INLINE CALENDAR STRATEGY
@@ -17,40 +16,32 @@ import 'package:cargo/services/stripe_service.dart';
 //
 //  Layer 1 — firstDay / lastDay props
 //    The calendar cannot navigate to months outside these bounds.
-//    Set to max(today, availableFrom) → availableTo so the user can
-//    never even see months outside the window.
 //
 //  Layer 2 — enabledDayPredicate
 //    Within [firstDay, lastDay], any day for which this returns false is
-//    greyed out and cannot be tapped. Used to block already-booked days.
+//    greyed out and cannot be tapped. Used to block already-confirmed days.
 //
 //  Layer 3 — onRangeSelected validation + _validate()
 //    Even though the two endpoints must each pass enabledDayPredicate, a
-//    range between them can still span a booked day in the middle (because
-//    only the tapped days are checked by the predicate). onRangeSelected
-//    scans the full range and rejects it if any day is booked.
-//    _validate() repeats this scan before createBooking() so the booking
-//    is safe regardless of how the state was set.
+//    range between them can still span a confirmed day in the middle.
+//    onRangeSelected scans the full range and rejects it if any day is
+//    confirmed-booked.  _validate() repeats this scan before createBooking().
 // ════════════════════════════════════════════════════════════════════════════
 
 class BookingController extends ChangeNotifier {
   final Car car;
 
   BookingController({required this.car}) {
-    // Initialise the calendar on the first selectable month.
-    // If availableFrom is in the future show that month; otherwise today.
     final today = _dateOnly(DateTime.now());
-    // Always open on the current month, regardless of availableFrom.
     _focusedDay = today;
 
     print('[BookingController] availableFrom: ${car.availableFrom}');
     print('[BookingController] availableTo:   ${car.availableTo}');
 
-    loadAvailability(); // fire-and-forget; _isLoadingAvailability = true until done
+    loadAvailability();
   }
 
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
-  final StripeService _stripe = StripeService();
 
   // ── State ────────────────────────────────────────────────────────────────
   DateTime? _startDate;
@@ -60,13 +51,13 @@ class BookingController extends ChangeNotifier {
   String? _error;
   bool _firestoreRulesError = false;
 
-  // Calendar focused day — drives which month the calendar displays.
   late DateTime _focusedDay;
 
   // Starts true so the first build shows a loader while Firestore is fetched.
   bool _isLoadingAvailability = true;
 
-  // Every individual day that is occupied by an active booking for this car.
+  // Days that are locked because a CONFIRMED booking covers them.
+  // Pending/approved bookings do NOT appear here — they don't lock dates.
   Set<DateTime> _bookedDates = {};
 
   // ── Getters ──────────────────────────────────────────────────────────────
@@ -113,19 +104,11 @@ class BookingController extends ChangeNotifier {
   DateTime _dateOnly(DateTime d) => DateTime(d.year, d.month, d.day);
 
   // ── Calendar Boundary Props ──────────────────────────────────────────────
-  // These are passed directly to TableCalendar's firstDay / lastDay so the
-  // widget itself enforces the bounds without any extra logic.
-
-  // Earliest NAVIGABLE day — controls how far back the user can scroll.
-  // Set one year behind today so the user can browse months before
-  // availableFrom (those months are visible but disabled via
-  // enabledDayPredicate — navigation bound ≠ selectability bound).
   DateTime get calendarFirstDay {
     final now = DateTime.now();
     return DateTime(now.year - 1, now.month, now.day);
   }
 
-  // Latest selectable day: availableTo or 1 year out as a safe fallback.
   DateTime get calendarLastDay {
     if (car.availableTo != null) return _dateOnly(car.availableTo!);
     return _dateOnly(DateTime.now()).add(const Duration(days: 365));
@@ -133,12 +116,6 @@ class BookingController extends ChangeNotifier {
 
   // ── Day Predicates ───────────────────────────────────────────────────────
 
-  // Passed to TableCalendar.enabledDayPredicate.
-  // Returns false for any day that must not be tappable:
-  //   • before availableFrom  (car not yet available)
-  //   • after availableTo     (car no longer available)
-  //   • inside a booked range (already reserved)
-  // Time is ignored — all comparisons use date-only values.
   bool isDayEnabled(DateTime day) {
     final d = _dateOnly(day);
     if (car.availableFrom != null && d.isBefore(_dateOnly(car.availableFrom!))) {
@@ -150,24 +127,24 @@ class BookingController extends ChangeNotifier {
     return !isBooked(d);
   }
 
-  // Returns true when [day] is occupied by an existing booking.
+  // Returns true only for days locked by a CONFIRMED booking.
   bool isBooked(DateTime day) => _bookedDates.contains(_dateOnly(day));
 
   // ── Availability Loader ──────────────────────────────────────────────────
-  // Fetches all active bookings for this car and expands each range into
-  // individual days stored in _bookedDates. These days are then blocked
-  // via enabledDayPredicate so the calendar greys them out automatically.
+  // Only CONFIRMED bookings lock the calendar.
+  // Pending and approved requests are visible to multiple renters
+  // simultaneously and do not block date selection until payment is made.
   Future<void> loadAvailability() async {
     try {
       final snapshot = await _firestore
           .collection('bookings')
           .where('carId', isEqualTo: car.id)
+          .where('status', isEqualTo: 'confirmed')
           .get();
 
       final booked = <DateTime>{};
       for (final doc in snapshot.docs) {
         final data = doc.data();
-        if ((data['status'] as String? ?? '') == 'cancelled') continue;
         final start = (data['startDate'] as Timestamp).toDate();
         final end = (data['endDate'] as Timestamp).toDate();
         DateTime cursor = _dateOnly(start);
@@ -189,27 +166,15 @@ class BookingController extends ChangeNotifier {
 
   // ── Calendar Callbacks ───────────────────────────────────────────────────
 
-  // Called by TableCalendar when the user swipes or taps to a new month.
   void onPageChanged(DateTime focusedDay) {
     _focusedDay = focusedDay;
-    // No notifyListeners — focusedDay change alone doesn't need a UI rebuild.
-    // TableCalendar manages its own page scroll internally.
   }
 
-  // Called by TableCalendar on every range interaction:
-  //   • First tap  → start = tapped, end = null
-  //   • Second tap → start = first, end = second  (or restart if before first)
-  //
-  // When end is non-null we scan the full range for booked days.
-  // If any are found we reject the end date (clear it) and show an error.
-  // The calendar re-renders with rangeEndDay = null, returning to
-  // "start-only" state so the user can re-tap a valid end date.
   void onRangeSelected(DateTime? start, DateTime? end, DateTime focusedDay) {
     _focusedDay = focusedDay;
     _startDate = start != null ? _dateOnly(start) : null;
 
     if (end == null) {
-      // First tap — just set the start.
       _endDate = null;
       _error = null;
       notifyListeners();
@@ -218,9 +183,6 @@ class BookingController extends ChangeNotifier {
 
     final endOnly = _dateOnly(end);
 
-    // Scan the range for booked days.
-    // enabledDayPredicate blocks tapping a booked endpoint, but a booked day
-    // can still sit between a valid start and a valid end.
     DateTime cursor = _startDate!;
     while (!cursor.isAfter(endOnly)) {
       if (isBooked(cursor)) {
@@ -273,8 +235,6 @@ class BookingController extends ChangeNotifier {
     if (!_endDate!.isAfter(_startDate!)) {
       return 'Drop-off date must be after pick-up date';
     }
-    // Window enforcement — the calendar already blocks these via firstDay /
-    // lastDay, but _validate() is the last line of defence before Firestore.
     if (car.availableFrom != null &&
         _startDate!.isBefore(_dateOnly(car.availableFrom!))) {
       return 'Pick-up date must be on or after ${_fmtDate(car.availableFrom!)}';
@@ -283,9 +243,6 @@ class BookingController extends ChangeNotifier {
         _endDate!.isAfter(_dateOnly(car.availableTo!))) {
       return 'Drop-off date must be on or before ${_fmtDate(car.availableTo!)}';
     }
-    // Full range scan — catches booked days between start and end.
-    // onRangeSelected already rejects these, but the state could theoretically
-    // be set another way, so this guard stays.
     DateTime cursor = _startDate!;
     while (!cursor.isAfter(_endDate!)) {
       if (isBooked(cursor)) {
@@ -296,18 +253,43 @@ class BookingController extends ChangeNotifier {
     return null;
   }
 
-  // ── Overlap Check (Firestore READ) ───────────────────────────────────────
-  // Queries ALL bookings for this car — including other users' bookings.
-  // Requires: allow read: if request.auth != null; in Firestore rules.
-  Future<bool> _hasOverlap(DateTime start, DateTime end) async {
+  // ── Renter Double-Booking Guard (Firestore READ) ─────────────────────────
+  // Checks whether the current user already has a pending, approved, or
+  // confirmed booking for ANY car that overlaps with [start]–[end].
+  // Cancelled bookings are skipped — they no longer count.
+  Future<bool> _hasRenterOverlap(DateTime start, DateTime end) async {
+    final uid = FirebaseAuth.instance.currentUser!.uid;
     final snapshot = await _firestore
         .collection('bookings')
-        .where('carId', isEqualTo: car.id)
+        .where('userId', isEqualTo: uid)
         .get();
 
     for (final doc in snapshot.docs) {
       final data = doc.data();
-      if ((data['status'] as String? ?? '') == 'cancelled') continue;
+      final status = data['status'] as String? ?? '';
+      if (status == 'cancelled') continue;
+      final existingStart = (data['startDate'] as Timestamp).toDate();
+      final existingEnd = (data['endDate'] as Timestamp).toDate();
+      if (!start.isAfter(existingEnd) && !end.isBefore(existingStart)) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  // ── Car Confirmed-Booking Overlap Check (Firestore READ) ─────────────────
+  // Only CONFIRMED bookings lock dates for a car. Pending and approved
+  // requests from other renters do not prevent a new request from being
+  // submitted — the owner decides who to accept.
+  Future<bool> _hasCarConfirmedOverlap(DateTime start, DateTime end) async {
+    final snapshot = await _firestore
+        .collection('bookings')
+        .where('carId', isEqualTo: car.id)
+        .where('status', isEqualTo: 'confirmed')
+        .get();
+
+    for (final doc in snapshot.docs) {
+      final data = doc.data();
       final existingStart = (data['startDate'] as Timestamp).toDate();
       final existingEnd = (data['endDate'] as Timestamp).toDate();
       if (!start.isAfter(existingEnd) && !end.isBefore(existingStart)) {
@@ -318,11 +300,14 @@ class BookingController extends ChangeNotifier {
   }
 
   // ── Create Booking ───────────────────────────────────────────────────────
-  // Step 1 — isAuthenticated       stops if not logged in
-  // Step 2 — _validate()           local checks, zero network cost
-  // Step 3 — _hasOverlap()         Firestore READ (auth confirmed above)
-  // Step 4 — _stripe.verifyCard()  card verification
-  // Step 5 — _firestore.doc.set()  Firestore WRITE
+  // Step 1 — isAuthenticated               stops if not logged in
+  // Step 2 — _validate()                   local checks, zero network cost
+  // Step 3 — _hasRenterOverlap()           Firestore READ — prevents double booking
+  // Step 4 — _hasCarConfirmedOverlap()     Firestore READ — car already confirmed?
+  // Step 5 — _firestore.doc.set()          Firestore WRITE — status: 'pending'
+  //
+  // NO payment at this stage. Payment happens after the owner approves the
+  // request. The renter pays from My Trips once the status becomes 'approved'.
   Future<bool> createBooking(BuildContext context) async {
     if (!isAuthenticated) {
       _error = 'You must be logged in to book a car';
@@ -345,25 +330,27 @@ class BookingController extends ChangeNotifier {
     notifyListeners();
 
     try {
-      // Step 3 — overlap check
-      print('[createBooking] Checking availability — carId: ${car.id}');
-      final overlaps = await _hasOverlap(_startDate!, _endDate!);
-      if (overlaps) {
+      // Step 3 — prevent renter from booking two cars at the same time
+      print('[createBooking] Checking renter availability — userId: ${FirebaseAuth.instance.currentUser!.uid}');
+      final renterBusy = await _hasRenterOverlap(_startDate!, _endDate!);
+      if (renterBusy) {
+        _error =
+            'You already have an active booking that overlaps these dates. '
+            'Cancel or complete that trip before booking another.';
+        _showError(context, _error!);
+        return false;
+      }
+
+      // Step 4 — check if car has a confirmed booking for these dates
+      print('[createBooking] Checking car confirmed bookings — carId: ${car.id}');
+      final carTaken = await _hasCarConfirmedOverlap(_startDate!, _endDate!);
+      if (carTaken) {
         _error = 'This car is already booked for the selected dates';
         _showError(context, _error!);
         return false;
       }
 
-      // Step 4 — Stripe card verification
-      print('[createBooking] Launching Stripe card verification...');
-      final cardVerified = await _stripe.verifyCard(context);
-      if (!cardVerified) {
-        print('[createBooking] User cancelled card verification');
-        return false;
-      }
-      print('[createBooking] Card verified successfully');
-
-      // Step 5 — Firestore write
+      // Step 5 — write the pending booking request (no payment)
       final currentUser = FirebaseAuth.instance.currentUser!;
       final docRef = _firestore.collection('bookings').doc();
 
@@ -379,7 +366,7 @@ class BookingController extends ChangeNotifier {
         createdAt: DateTime.now(),
       );
 
-      print('[createBooking] Writing booking to Firestore:');
+      print('[createBooking] Writing pending booking request:');
       print('  bookingId:  ${booking.bookingId}');
       print('  userId:     ${booking.userId}');
       print('  carId:      ${booking.carId}');
@@ -389,7 +376,7 @@ class BookingController extends ChangeNotifier {
       print('  totalPrice: ${booking.totalPrice}');
 
       await docRef.set(booking.toMap());
-      print('[createBooking] Booking created successfully: ${docRef.id}');
+      print('[createBooking] Booking request created: ${docRef.id}');
 
       return true;
     } on FirebaseException catch (e) {
