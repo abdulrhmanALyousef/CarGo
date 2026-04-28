@@ -5,6 +5,7 @@ import 'package:cargo/Features/search/widgets/search_header.dart';
 import 'package:cargo/Features/search/widgets/search_bar_widget.dart';
 import 'package:cargo/Features/search/widgets/search_filter_panel.dart';
 import 'package:cargo/Features/home/widgets/car_card.dart';
+import 'package:cargo/core/widgets/app_button.dart';
 import 'package:cargo/core/theme/light_color.dart';
 
 class SearchScreen extends StatelessWidget {
@@ -83,15 +84,11 @@ class _SearchBody extends StatelessWidget {
                 style: TextStyle(fontSize: 16, color: Colors.grey.shade600),
               ),
               const SizedBox(height: 12),
-              ElevatedButton(
-                onPressed: () => ctrl.fetchCars(),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: LightColors.primaryColor,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                ),
-                child: const Text('Retry', style: TextStyle(color: Colors.white)),
+              AppButton(
+                text: 'Retry',
+                onTap: () => ctrl.fetchCars(),
+                width: 120,
+                height: 44,
               ),
             ],
           ),
@@ -111,12 +108,12 @@ class _SearchBody extends StatelessWidget {
               style: TextStyle(fontSize: 16, color: Colors.grey.shade500),
             ),
             const SizedBox(height: 8),
-            TextButton(
-              onPressed: () => ctrl.clearFilters(),
-              child: const Text(
-                'Clear filters',
-                style: TextStyle(color: LightColors.primaryColor),
-              ),
+            AppButton(
+              text: 'Clear filters',
+              onTap: () => ctrl.clearFilters(),
+              width: 140,
+              height: 40,
+              fontSize: 13,
             ),
           ],
         ),

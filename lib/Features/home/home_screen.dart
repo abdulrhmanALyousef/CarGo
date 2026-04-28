@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:cargo/core/widgets/search_widget.dart';
+import 'package:cargo/core/widgets/profile_icon_widget.dart';
+import 'package:cargo/core/widgets/app_button.dart';
 import 'package:cargo/core/theme/light_color.dart';
 import 'package:cargo/Features/home/controllers/home_controller.dart';
 import 'package:cargo/Features/home/widgets/car_card.dart';
@@ -141,14 +143,7 @@ class HomeScreen extends StatelessWidget {
                                 ],
                               ];
                             },
-                            child: ClipOval(
-                              child: Image.asset(
-                                'assets/images/imageicon.png',
-                                width: 48,
-                                height: 48,
-                                fit: BoxFit.cover,
-                              ),
-                            ),
+                            child: const ProfileIconWidget(),
                           ),
                         ],
                       ),
@@ -198,12 +193,11 @@ class HomeScreen extends StatelessWidget {
                                   ),
                                 ),
                                 const SizedBox(height: 12),
-                                ElevatedButton(
-                                  onPressed: () => ctrl.fetchCars(),
-                                  style: ElevatedButton.styleFrom(
-                                    backgroundColor: LightColors.primaryColor,
-                                  ),
-                                  child: const Text('Retry', style: TextStyle(color: Colors.white)),
+                                AppButton(
+                                  text: 'Retry',
+                                  onTap: () => ctrl.fetchCars(),
+                                  width: 120,
+                                  height: 44,
                                 ),
                               ],
                             ),

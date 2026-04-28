@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:cargo/Features/trips/my_trips_controller.dart';
+import 'package:cargo/core/widgets/app_button.dart';
 import 'package:cargo/core/theme/light_color.dart';
 import 'package:cargo/models/booking_model.dart';
 
@@ -101,18 +102,16 @@ class _MyTripsBodyState extends State<_MyTripsBody> {
             onPressed: () => Navigator.pop(context),
             child: const Text('Later'),
           ),
-          ElevatedButton(
-            onPressed: () {
+          AppButton(
+            text: 'Complete',
+            onTap: () {
               Navigator.pop(context);
               context.read<MyTripsController>().payForBooking(entry, context);
             },
-            style: ElevatedButton.styleFrom(
-              backgroundColor: LightColors.primaryColor,
-              shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(10)),
-            ),
-            child: const Text('Complete',
-                style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600)),
+            width: 120,
+            height: 40,
+            borderRadius: 10,
+            fontSize: 14,
           ),
         ],
       ),
@@ -153,12 +152,11 @@ class _MyTripsBodyState extends State<_MyTripsBody> {
               style: TextStyle(fontSize: 16, color: Colors.grey.shade600),
             ),
             const SizedBox(height: 12),
-            ElevatedButton(
-              onPressed: () => context.read<MyTripsController>().fetchTrips(),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: LightColors.primaryColor,
-              ),
-              child: const Text('Retry', style: TextStyle(color: Colors.white)),
+            AppButton(
+              text: 'Retry',
+              onTap: () => context.read<MyTripsController>().fetchTrips(),
+              width: 120,
+              height: 44,
             ),
           ],
         ),
@@ -380,22 +378,15 @@ class _TripCard extends StatelessWidget {
         // ── Pay Now (approved only) ─────────────────────────────────────
         if (canPay) ...[
           Expanded(
-            child: ElevatedButton.icon(
-              onPressed: () => context
+            child: AppButton(
+              text: 'Pay Now',
+              onTap: () => context
                   .read<MyTripsController>()
                   .payForBooking(entry, context),
               icon: const Icon(Icons.payment, size: 16, color: Colors.white),
-              label: const Text('Pay Now',
-                  style: TextStyle(
-                      color: Colors.white,
-                      fontWeight: FontWeight.w600,
-                      fontSize: 14)),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: LightColors.primaryColor,
-                shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(10)),
-                padding: const EdgeInsets.symmetric(vertical: 12),
-              ),
+              borderRadius: 10,
+              height: 44,
+              fontSize: 14,
             ),
           ),
           const SizedBox(width: 10),
@@ -404,21 +395,16 @@ class _TripCard extends StatelessWidget {
         // ── Cancel (pending or approved) ────────────────────────────────
         if (canCancel)
           Expanded(
-            child: OutlinedButton.icon(
-              onPressed: () => _confirmCancel(context, booking.bookingId),
-              icon: const Icon(Icons.cancel_outlined,
-                  size: 16, color: Colors.red),
-              label: const Text('Cancel',
-                  style: TextStyle(
-                      color: Colors.red,
-                      fontWeight: FontWeight.w600,
-                      fontSize: 14)),
-              style: OutlinedButton.styleFrom(
-                side: const BorderSide(color: Colors.red),
-                shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(10)),
-                padding: const EdgeInsets.symmetric(vertical: 12),
-              ),
+            child: AppButton(
+              text: 'Cancel',
+              onTap: () => _confirmCancel(context, booking.bookingId),
+              color: Colors.red,
+              textColor: Colors.red,
+              outlined: true,
+              icon: const Icon(Icons.cancel_outlined, size: 16, color: Colors.red),
+              borderRadius: 10,
+              height: 44,
+              fontSize: 14,
             ),
           ),
       ],

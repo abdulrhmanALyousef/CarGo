@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_svg/flutter_svg.dart';
 import 'package:cargo/models/review_model.dart';
 import 'package:cargo/core/theme/light_color.dart';
+import 'package:cargo/core/widgets/profile_icon_widget.dart';
 
 class ReviewsScreen extends StatelessWidget {
   final List<Review> reviews;
@@ -192,12 +192,9 @@ class ReviewsScreen extends StatelessWidget {
         children: [
           Row(
             children: [
-              ClipOval(
-                child: SvgPicture.asset(
-                  'assets/images/manicon.png',
-                  width: 36,
-                  height: 36,
-                ),
+              ProfileIconWidget(
+                size: 36,
+                imagePath: 'assets/images/manicon.png',
               ),
               const SizedBox(width: 10),
               Expanded(

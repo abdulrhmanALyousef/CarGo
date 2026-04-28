@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:cargo/Features/cars/car_list_controller.dart';
 import 'package:cargo/core/widgets/item_card.dart';
+import 'package:cargo/core/widgets/app_button.dart';
 import 'package:cargo/core/theme/light_color.dart';
 import 'package:cargo/Features/details/car_details_screen.dart';
 
@@ -374,12 +375,11 @@ class _CarList extends StatelessWidget {
                 style: const TextStyle(color: Colors.red),
               ),
               const SizedBox(height: 16),
-              ElevatedButton(
-                onPressed: ctrl.fetchCars,
-                style: ElevatedButton.styleFrom(
-                    backgroundColor: LightColors.primaryColor),
-                child: const Text('Retry',
-                    style: TextStyle(color: Colors.white)),
+              AppButton(
+                text: 'Retry',
+                onTap: ctrl.fetchCars,
+                width: 120,
+                height: 44,
               ),
             ],
           ),
@@ -400,12 +400,12 @@ class _CarList extends StatelessWidget {
               style: TextStyle(fontSize: 16, color: Colors.grey.shade500),
             ),
             const SizedBox(height: 8),
-            TextButton(
-              onPressed: ctrl.clearFilters,
-              child: const Text(
-                'Clear filters',
-                style: TextStyle(color: LightColors.primaryColor),
-              ),
+            AppButton(
+              text: 'Clear filters',
+              onTap: ctrl.clearFilters,
+              width: 140,
+              height: 40,
+              fontSize: 13,
             ),
           ],
         ),

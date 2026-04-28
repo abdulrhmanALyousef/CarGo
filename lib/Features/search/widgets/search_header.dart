@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:cargo/core/widgets/profile_icon_widget.dart';
 import 'package:cargo/core/theme/light_color.dart';
 
 class SearchHeader extends StatelessWidget {
@@ -10,10 +11,10 @@ class SearchHeader extends StatelessWidget {
       padding: const EdgeInsets.fromLTRB(20, 20, 20, 8),
       child: Row(
         children: [
-          CircleAvatar(
-            radius: 22,
+          ProfileIconWidget(
+            size: 44,
             backgroundColor: Colors.grey.shade300,
-            child: const Icon(Icons.person, color: Colors.white, size: 26),
+            iconColor: Colors.white,
           ),
           const Spacer(),
           const Text(
@@ -31,4 +32,3 @@ class SearchHeader extends StatelessWidget {
     );
   }
 }
-

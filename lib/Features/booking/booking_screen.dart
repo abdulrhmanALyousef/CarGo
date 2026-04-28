@@ -5,6 +5,7 @@ import 'package:cargo/models/car_model.dart';
 import 'package:cargo/Features/booking/booking_controller.dart';
 import 'package:cargo/Features/auth/login_screen.dart';
 import 'package:cargo/Features/Main/main_screen.dart';
+import 'package:cargo/core/widgets/app_button.dart';
 import 'package:cargo/core/theme/light_color.dart';
 
 class BookingScreen extends StatelessWidget {
@@ -65,25 +66,14 @@ class BookingScreen extends StatelessWidget {
                   color: LightColors.textColor.withOpacity(0.5)),
             ),
             const SizedBox(height: 28),
-            SizedBox(
-              width: double.infinity,
-              child: ElevatedButton(
-                onPressed: () => Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (_) => const LoginScreen()),
-                ),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: LightColors.primaryColor,
-                  shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(14)),
-                  padding: const EdgeInsets.symmetric(vertical: 16),
-                ),
-                child: const Text('Log In',
-                    style: TextStyle(
-                        color: Colors.white,
-                        fontWeight: FontWeight.w600,
-                        fontSize: 16)),
+            AppButton(
+              text: 'Log In',
+              onTap: () => Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const LoginScreen()),
               ),
+              borderRadius: 14,
+              fontSize: 16,
             ),
           ],
         ),
@@ -340,52 +330,33 @@ class BookingScreen extends StatelessWidget {
             const SizedBox(height: 24),
           ],
 
-          // ── Continue Button ────────────────────────────────────────────
-          SizedBox(
-            width: double.infinity,
-            child: ElevatedButton(
-              onPressed: ctrl.isLoading
-                  ? null
-                  : () async {
-                      final success = await context
-                          .read<BookingController>()
-                          .createBooking(context);
-                      if (success && context.mounted) {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(
-                            content: Text(
-                              'Request sent! You will be notified once the owner approves. '
-                              'Payment is only required after approval.',
-                            ),
-                            duration: Duration(seconds: 5),
-                          ),
-                        );
-                        Navigator.pushAndRemoveUntil(
-                          context,
-                          MaterialPageRoute(
-                              builder: (_) => const MainScreen()),
-                          (_) => false,
-                        );
-                      }
-                    },
-              style: ElevatedButton.styleFrom(
-                backgroundColor: LightColors.primaryColor,
-                shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(14)),
-                padding: const EdgeInsets.symmetric(vertical: 16),
-              ),
-              child: ctrl.isLoading
-                  ? const SizedBox(
-                      height: 20,
-                      width: 20,
-                      child: CircularProgressIndicator(
-                          color: Colors.white, strokeWidth: 2))
-                  : const Text('Request Booking',
-                      style: TextStyle(
-                          color: Colors.white,
-                          fontWeight: FontWeight.w600,
-                          fontSize: 16)),
-            ),
+          // ── Request Booking Button ─────────────────────────────────────
+          AppButton(
+            text: 'Request Booking',
+            isLoading: ctrl.isLoading,
+            onTap: () async {
+              final success = await context
+                  .read<BookingController>()
+                  .createBooking(context);
+              if (success && context.mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text(
+                      'Request sent! You will be notified once the owner approves. '
+                      'Payment is only required after approval.',
+                    ),
+                    duration: Duration(seconds: 5),
+                  ),
+                );
+                Navigator.pushAndRemoveUntil(
+                  context,
+                  MaterialPageRoute(builder: (_) => const MainScreen()),
+                  (_) => false,
+                );
+              }
+            },
+            borderRadius: 14,
+            fontSize: 16,
           ),
 
           const SizedBox(height: 24),
