@@ -9,6 +9,7 @@ import 'package:cargo/Features/details/controllers/car_details_controller.dart';
 import 'package:cargo/core/theme/light_color.dart';
 import 'package:cargo/core/widgets/app_button.dart';
 import 'package:cargo/core/widgets/profile_icon_widget.dart';
+import 'package:cargo/core/widgets/profile_menu_button.dart';
 import 'package:cargo/Features/reviews/reviews_screen.dart';
 import 'package:cargo/Features/booking/booking_screen.dart';
 
@@ -56,6 +57,10 @@ class CarDetailsScreen extends StatelessWidget {
                         icon: const Icon(Icons.share, color: Colors.white),
                         onPressed: () {},
                       ),
+                    ),
+                    const Padding(
+                      padding: EdgeInsets.only(right: 12),
+                      child: ProfileMenuButton(),
                     ),
                   ],
                   flexibleSpace: FlexibleSpaceBar(

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:cargo/models/review_model.dart';
 import 'package:cargo/core/theme/light_color.dart';
 import 'package:cargo/core/widgets/profile_icon_widget.dart';
+import 'package:cargo/core/widgets/profile_menu_button.dart';
 
 class ReviewsScreen extends StatelessWidget {
   final List<Review> reviews;
@@ -43,6 +44,12 @@ class ReviewsScreen extends StatelessWidget {
           ),
         ),
         centerTitle: true,
+        actions: const [
+          Padding(
+            padding: EdgeInsets.only(right: 12),
+            child: ProfileMenuButton(),
+          ),
+        ],
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(16),

@@ -6,6 +6,7 @@ import 'package:cargo/Features/booking/booking_controller.dart';
 import 'package:cargo/Features/auth/login_screen.dart';
 import 'package:cargo/Features/Main/main_screen.dart';
 import 'package:cargo/core/widgets/app_button.dart';
+import 'package:cargo/core/widgets/profile_menu_button.dart';
 import 'package:cargo/core/theme/light_color.dart';
 
 class BookingScreen extends StatelessWidget {
@@ -29,6 +30,12 @@ class BookingScreen extends StatelessWidget {
                 icon: const Icon(Icons.arrow_back),
                 onPressed: () => Navigator.pop(context),
               ),
+              actions: const [
+                Padding(
+                  padding: EdgeInsets.only(right: 12),
+                  child: ProfileMenuButton(),
+                ),
+              ],
             ),
             body: ctrl.isAuthenticated
                 ? _buildBookingBody(context, ctrl)

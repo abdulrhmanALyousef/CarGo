@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:cargo/core/widgets/item_card.dart';
+import 'package:cargo/core/widgets/profile_menu_button.dart';
 import 'package:cargo/core/theme/light_color.dart';
 import 'package:cargo/Features/cars/car_list_screen.dart';
 
@@ -33,6 +34,12 @@ class CitiesScreen extends StatelessWidget {
             fontSize: 18,
           ),
         ),
+        actions: const [
+          Padding(
+            padding: EdgeInsets.only(right: 12),
+            child: ProfileMenuButton(),
+          ),
+        ],
       ),
       body: ListView.separated(
         padding: const EdgeInsets.all(16),

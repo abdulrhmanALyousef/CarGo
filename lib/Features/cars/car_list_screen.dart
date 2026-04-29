@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import 'package:cargo/Features/cars/car_list_controller.dart';
 import 'package:cargo/core/widgets/item_card.dart';
 import 'package:cargo/core/widgets/app_button.dart';
+import 'package:cargo/core/widgets/profile_menu_button.dart';
 import 'package:cargo/core/theme/light_color.dart';
 import 'package:cargo/Features/details/car_details_screen.dart';
 
@@ -43,6 +44,12 @@ class _CarListView extends StatelessWidget {
           ),
         ),
         iconTheme: const IconThemeData(color: LightColors.textColor),
+        actions: const [
+          Padding(
+            padding: EdgeInsets.only(right: 12),
+            child: ProfileMenuButton(),
+          ),
+        ],
       ),
       body: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
