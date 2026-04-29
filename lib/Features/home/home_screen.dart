@@ -1,17 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:cargo/core/widgets/search_widget.dart';
-import 'package:cargo/core/widgets/profile_icon_widget.dart';
+import 'package:cargo/core/widgets/profile_menu_button.dart';
 import 'package:cargo/core/widgets/app_button.dart';
 import 'package:cargo/core/theme/light_color.dart';
 import 'package:cargo/Features/home/controllers/home_controller.dart';
 import 'package:cargo/Features/home/widgets/car_card.dart';
-import 'package:cargo/core/dataSource/remote_data/firebase_service.dart';
-import 'package:cargo/core/dataSource/local_data/preferences_manager.dart';
-import 'package:cargo/Features/auth/login_screen.dart';
-import 'package:cargo/Features/Main/main_screen.dart';
-import 'package:cargo/Features/trips/my_trips_screen.dart';
-import 'package:cargo/Features/mycars/my_cars_screen.dart';
 
 class HomeScreen extends StatelessWidget {
   const HomeScreen({super.key});
@@ -55,96 +49,7 @@ class HomeScreen extends StatelessWidget {
                               ),
                             ],
                           ),
-                          PopupMenuButton<String>(
-                            offset: const Offset(0, 48),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                            onSelected: (value) async {
-                              if (value == 'login') {
-                                Navigator.push(
-                                  context,
-                                  MaterialPageRoute(
-                                    builder: (_) => const LoginScreen(),
-                                  ),
-                                );
-                              } else if (value == 'my_trips') {
-                                Navigator.push(
-                                  context,
-                                  MaterialPageRoute(
-                                    builder: (_) => const MyTripsScreen(),
-                                  ),
-                                );
-                              } else if (value == 'my_cars') {
-                                Navigator.push(
-                                  context,
-                                  MaterialPageRoute(
-                                    builder: (_) => const MyCarsScreen(),
-                                  ),
-                                );
-                              } else if (value == 'logout') {
-                                await FirebaseService().logout();
-                                await PreferencesManager().setBool('isloggedin', false);
-                                if (!context.mounted) return;
-                                Navigator.pushAndRemoveUntil(
-                                  context,
-                                  MaterialPageRoute(
-                                    builder: (_) => const MainScreen(),
-                                  ),
-                                  (_) => false,
-                                );
-                              }
-                            },
-                            itemBuilder: (_) {
-                              final isLoggedIn = FirebaseService().isUserLoggedIn();
-                              return [
-                                if (!isLoggedIn)
-                                  const PopupMenuItem<String>(
-                                    value: 'login',
-                                    child: Row(
-                                      children: [
-                                        Icon(Icons.login, size: 20, color: LightColors.primaryColor),
-                                        SizedBox(width: 8),
-                                        Text('Log In'),
-                                      ],
-                                    ),
-                                  )
-                                else ...[
-                                  const PopupMenuItem<String>(
-                                    value: 'my_trips',
-                                    child: Row(
-                                      children: [
-                                        Icon(Icons.luggage_outlined, size: 20, color: LightColors.primaryColor),
-                                        SizedBox(width: 8),
-                                        Text('My Trips'),
-                                      ],
-                                    ),
-                                  ),
-                                  const PopupMenuItem<String>(
-                                    value: 'my_cars',
-                                    child: Row(
-                                      children: [
-                                        Icon(Icons.car_rental, size: 20, color: LightColors.primaryColor),
-                                        SizedBox(width: 8),
-                                        Text('My Cars'),
-                                      ],
-                                    ),
-                                  ),
-                                  const PopupMenuItem<String>(
-                                    value: 'logout',
-                                    child: Row(
-                                      children: [
-                                        Icon(Icons.logout, size: 20, color: Colors.red),
-                                        SizedBox(width: 8),
-                                        Text('Log Out'),
-                                      ],
-                                    ),
-                                  ),
-                                ],
-                              ];
-                            },
-                            child: const ProfileIconWidget(),
-                          ),
+                          const ProfileMenuButton(),
                         ],
                       ),
 

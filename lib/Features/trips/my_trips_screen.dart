@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:cargo/Features/trips/my_trips_controller.dart';
 import 'package:cargo/core/widgets/app_button.dart';
+import 'package:cargo/core/widgets/profile_menu_button.dart';
 import 'package:cargo/core/theme/light_color.dart';
 import 'package:cargo/models/booking_model.dart';
 
@@ -47,6 +48,12 @@ class _MyTripsBodyState extends State<_MyTripsBody> {
       appBar: AppBar(
         title: const Text('My Trips'),
         leading: BackButton(onPressed: () => Navigator.pop(context)),
+        actions: const [
+          Padding(
+            padding: EdgeInsets.only(right: 12),
+            child: ProfileMenuButton(),
+          ),
+        ],
       ),
       body: _buildBody(context, ctrl),
     );

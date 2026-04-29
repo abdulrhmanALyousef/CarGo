@@ -4,6 +4,7 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:cargo/Features/mycars/my_cars_controller.dart';
 import 'package:cargo/core/theme/light_color.dart';
 import 'package:cargo/core/widgets/app_button.dart';
+import 'package:cargo/core/widgets/profile_menu_button.dart';
 import 'package:cargo/models/car_model.dart';
 
 class MyCarsScreen extends StatelessWidget {
@@ -26,6 +27,10 @@ class MyCarsScreen extends StatelessWidget {
                 IconButton(
                   icon: const Icon(Icons.refresh),
                   onPressed: () => context.read<MyCarsController>().fetchMyCars(),
+                ),
+                const Padding(
+                  padding: EdgeInsets.only(right: 12),
+                  child: ProfileMenuButton(),
                 ),
               ],
             ),
