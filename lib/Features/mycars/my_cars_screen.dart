@@ -406,6 +406,28 @@ class _RequestRow extends StatelessWidget {
                 ],
               ),
             ),
+
+          // ── Chat with Renter ────────────────────────────────────────────
+          if (!isProcessing) ...[
+            const SizedBox(height: 8),
+            AppButton(
+              text: 'Chat with Renter',
+              onTap: () => context
+                  .read<MyCarsController>()
+                  .openChatWithRenter(request, context),
+              outlined: true,
+              icon: const Icon(
+                Icons.chat_bubble_outline,
+                size: 16,
+                color: LightColors.primaryColor,
+              ),
+              color: LightColors.primaryColor,
+              textColor: LightColors.primaryColor,
+              borderRadius: 8,
+              height: 44,
+              fontSize: 13,
+            ),
+          ],
         ],
       ),
     );

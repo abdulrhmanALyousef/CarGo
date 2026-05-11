@@ -352,6 +352,28 @@ class _TripCard extends StatelessWidget {
 
                 const SizedBox(height: 12),
 
+                // ── Chat with Owner ───────────────────────────────────────
+                if (entry.car != null) ...[
+                  AppButton(
+                    text: 'Chat with Owner',
+                    onTap: () => context
+                        .read<MyTripsController>()
+                        .openChatWithOwner(entry, context),
+                    outlined: true,
+                    icon: const Icon(
+                      Icons.chat_bubble_outline,
+                      size: 16,
+                      color: LightColors.primaryColor,
+                    ),
+                    color: LightColors.primaryColor,
+                    textColor: LightColors.primaryColor,
+                    borderRadius: 10,
+                    height: 44,
+                    fontSize: 14,
+                  ),
+                  const SizedBox(height: 8),
+                ],
+
                 // ── Action Buttons ────────────────────────────────────────
                 if (isProcessing)
                   const Center(
