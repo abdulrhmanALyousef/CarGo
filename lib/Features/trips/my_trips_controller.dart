@@ -8,6 +8,8 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:cargo/models/booking_model.dart';
 import 'package:cargo/models/car_model.dart';
 import 'package:cargo/services/stripe_service.dart';
+import 'package:cargo/core/dataSource/remote_data/firebase_service.dart';
+import 'package:cargo/Features/chats/presentation/chat_screen.dart';
 
 // ── Trip Entry ────────────────────────────────────────────────────────────────
 // Pairs a Booking with its associated Car (nullable — car may have been removed).
@@ -348,6 +350,40 @@ class MyTripsController extends ChangeNotifier {
       }
     }
     return false;
+  }
+
+  // ── Open Chat with Owner ──────────────────────────────────────────────────
+  Future<void> openChatWithOwner(TripEntry entry, BuildContext context) async {
+    final currentUserId = FirebaseAuth.instance.currentUser?.uid;
+    if (currentUserId == null) return;
+
+    final car = entry.car;
+    if (car == null) return;
+
+    final ownerId = car.ownerId;
+    final chatId = currentUserId.compareTo(ownerId) < 0
+        ? '${currentUserId}_$ownerId'
+        : '${ownerId}_$currentUserId';
+
+    String ownerName = 'Owner';
+    try {
+      final data = await FirebaseService().getUserData(uid: ownerId);
+      ownerName = data?['fullName'] as String? ?? 'Owner';
+    } catch (_) {}
+
+    if (context.mounted) {
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) => ChatScreen(
+            chatId: chatId,
+            currentUserId: currentUserId,
+            otherUserId: ownerId,
+            otherUserName: ownerName,
+          ),
+        ),
+      );
+    }
   }
 
   void _showError(BuildContext context, String message) {
