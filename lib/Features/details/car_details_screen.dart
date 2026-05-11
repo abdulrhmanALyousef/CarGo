@@ -271,22 +271,28 @@ class CarDetailsScreen extends StatelessWidget {
                                 ],
                               ),
                             ),
-                            Container(
-                              padding: const EdgeInsets.all(8),
-                              decoration: BoxDecoration(
-                                color: LightColors.primaryColor,
-                                borderRadius: BorderRadius.circular(8),
+                            GestureDetector(
+                              onTap: () => context.read<CarDetailsController>().openChat(context),
+                              child: Container(
+                                padding: const EdgeInsets.all(8),
+                                decoration: BoxDecoration(
+                                  color: LightColors.primaryColor,
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                                child: const Icon(Icons.chat_bubble, color: Colors.white, size: 18),
                               ),
-                              child: const Icon(Icons.chat_bubble, color: Colors.white, size: 18),
                             ),
                             const SizedBox(width: 8),
-                            Container(
-                              padding: const EdgeInsets.all(8),
-                              decoration: BoxDecoration(
-                                color: LightColors.primaryColor,
-                                borderRadius: BorderRadius.circular(8),
+                            GestureDetector(
+                              onTap: () => context.read<CarDetailsController>().callOwner(context),
+                              child: Container(
+                                padding: const EdgeInsets.all(8),
+                                decoration: BoxDecoration(
+                                  color: LightColors.primaryColor,
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                                child: const Icon(Icons.phone, color: Colors.white, size: 18),
                               ),
-                              child: const Icon(Icons.phone, color: Colors.white, size: 18),
                             ),
                           ],
                         ),

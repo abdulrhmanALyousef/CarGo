@@ -5,6 +5,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:cargo/models/booking_model.dart';
 import 'package:cargo/models/car_model.dart';
+import 'package:cargo/Features/chats/presentation/chat_screen.dart';
 
 // ── Booking Request Entry ──────────────────────────────────────────────────────
 // Pairs a Booking with the customer's display name.
@@ -228,6 +229,29 @@ class MyCarsController extends ChangeNotifier {
       _actionId = null;
       notifyListeners();
     }
+  }
+
+  // ── Open Chat with Renter ─────────────────────────────────────────────────
+  void openChatWithRenter(BookingRequestEntry entry, BuildContext context) {
+    final currentUserId = FirebaseAuth.instance.currentUser?.uid;
+    if (currentUserId == null) return;
+
+    final renterId = entry.booking.userId;
+    final chatId = currentUserId.compareTo(renterId) < 0
+        ? '${currentUserId}_$renterId'
+        : '${renterId}_$currentUserId';
+
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => ChatScreen(
+          chatId: chatId,
+          currentUserId: currentUserId,
+          otherUserId: renterId,
+          otherUserName: entry.customerName,
+        ),
+      ),
+    );
   }
 
   // ── Overlap Check (accept guard) ──────────────────────────────────────────
