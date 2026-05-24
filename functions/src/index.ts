@@ -14,6 +14,7 @@ admin.initializeApp();
 const db = admin.firestore();
 const resendKey   = defineSecret('RESEND_API_KEY');
 const stripeKey   = defineSecret('STRIPE_SECRET_KEY');
+const mapsKey     = defineSecret('GOOGLE_MAPS_API_KEY');
 
 // ── Logo URL ──────────────────────────────────────────────────────────────────
 //
@@ -567,5 +568,91 @@ export const createSetupIntent = onCall(
       console.error('[createSetupIntent] Stripe error:', e);
       throw new HttpsError('internal', 'Failed to create setup intent.');
     }
+  }
+);
+
+// ── searchPlaces ─────────────────────────────────────────────────────────────
+//
+// Proxies the Google Places Autocomplete API so the API key stays server-side.
+// Called from Flutter via FirebaseFunctions.instanceFor(region: 'us-central1')
+//   .httpsCallable('searchPlaces')
+//
+// Input:  { query: string }
+// Output: { predictions: [{ placeId, description, lat?, lng? }] }
+
+export const searchPlaces = onCall(
+  { secrets: [mapsKey] },
+  async (request) => {
+    if (!request.auth) {
+      throw new HttpsError('unauthenticated', 'User must be authenticated.');
+    }
+
+    const query: string = (request.data.query ?? '').trim();
+    if (!query || query.length < 2) {
+      return { predictions: [] };
+    }
+
+    const apiKey = mapsKey.value();
+    const url =
+      `https://maps.googleapis.com/maps/api/place/autocomplete/json` +
+      `?input=${encodeURIComponent(query)}` +
+      `&components=country:sa` +
+      `&key=${apiKey}`;
+
+    const res = await fetch(url);
+    const json = await res.json();
+
+    if (json.status !== 'OK' && json.status !== 'ZERO_RESULTS') {
+      console.error('[searchPlaces] API error:', json.status, json.error_message);
+      throw new HttpsError('internal', `Places API error: ${json.status}`);
+    }
+
+    const predictions = (json.predictions ?? []).map((p: any) => ({
+      placeId: p.place_id,
+      description: p.description,
+    }));
+
+    return { predictions };
+  }
+);
+
+// ── getPlaceDetails ──────────────────────────────────────────────────────────
+//
+// Given a placeId, returns lat/lng coordinates.
+// Called after the user picks a suggestion from searchPlaces.
+
+export const getPlaceDetails = onCall(
+  { secrets: [mapsKey] },
+  async (request) => {
+    if (!request.auth) {
+      throw new HttpsError('unauthenticated', 'User must be authenticated.');
+    }
+
+    const placeId: string = (request.data.placeId ?? '').trim();
+    if (!placeId) {
+      throw new HttpsError('invalid-argument', 'placeId is required.');
+    }
+
+    const apiKey = mapsKey.value();
+    const url =
+      `https://maps.googleapis.com/maps/api/place/details/json` +
+      `?place_id=${encodeURIComponent(placeId)}` +
+      `&fields=geometry,formatted_address` +
+      `&key=${apiKey}`;
+
+    const res = await fetch(url);
+    const json = await res.json();
+
+    if (json.status !== 'OK') {
+      console.error('[getPlaceDetails] API error:', json.status);
+      throw new HttpsError('internal', `Place Details error: ${json.status}`);
+    }
+
+    const loc = json.result.geometry.location;
+    return {
+      lat: loc.lat,
+      lng: loc.lng,
+      address: json.result.formatted_address ?? '',
+    };
   }
 );
