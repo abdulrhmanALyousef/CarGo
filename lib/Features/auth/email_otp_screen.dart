@@ -11,7 +11,8 @@ class EmailOtpScreen extends StatelessWidget {
   final String fullName;
   final String phone;
   final String nationalId;
-  final File licenseFile;
+  final File? licenseFile;
+  final String role;
 
   const EmailOtpScreen({
     super.key,
@@ -20,7 +21,8 @@ class EmailOtpScreen extends StatelessWidget {
     required this.fullName,
     required this.phone,
     required this.nationalId,
-    required this.licenseFile,
+    this.licenseFile,
+    this.role = 'renter',
   });
 
   @override
@@ -33,6 +35,7 @@ class EmailOtpScreen extends StatelessWidget {
         phone: phone,
         nationalId: nationalId,
         licenseFile: licenseFile,
+        role: role,
       ),
       child: Builder(
         builder: (context) {
@@ -43,6 +46,7 @@ class EmailOtpScreen extends StatelessWidget {
             appBar: AppBar(
               backgroundColor: LightColors.backgroundColor,
               elevation: 0,
+              surfaceTintColor: Colors.transparent,
               leading: Padding(
                 padding: const EdgeInsets.all(8.0),
                 child: Container(
@@ -51,7 +55,8 @@ class EmailOtpScreen extends StatelessWidget {
                     shape: BoxShape.circle,
                   ),
                   child: IconButton(
-                    icon: Icon(Icons.arrow_back, color: LightColors.textColor),
+                    icon: Icon(Icons.arrow_back,
+                        color: LightColors.textColor),
                     onPressed: () => Navigator.pop(context),
                   ),
                 ),
@@ -67,18 +72,19 @@ class EmailOtpScreen extends StatelessWidget {
             ),
             body: SafeArea(
               child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
+                padding: const EdgeInsets.symmetric(
+                    horizontal: 24, vertical: 20),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.center,
                   children: [
                     const SizedBox(height: 16),
 
-                    // ─── Icon ────────────────────────────────────────────
+                    // Icon
                     Container(
                       width: 72,
                       height: 72,
                       decoration: BoxDecoration(
-                        color: LightColors.primaryColor.withOpacity(0.1),
+                        color: LightColors.primaryColor.withValues(alpha: 0.1),
                         shape: BoxShape.circle,
                       ),
                       child: Icon(
@@ -89,7 +95,7 @@ class EmailOtpScreen extends StatelessWidget {
                     ),
                     const SizedBox(height: 24),
 
-                    // ─── Title ───────────────────────────────────────────
+                    // Title
                     Text(
                       'Verify Your Email',
                       style: TextStyle(
@@ -100,12 +106,12 @@ class EmailOtpScreen extends StatelessWidget {
                     ),
                     const SizedBox(height: 10),
 
-                    // ─── Subtitle ────────────────────────────────────────
+                    // Subtitle
                     Text(
                       'We sent a 6-digit code to',
                       style: TextStyle(
                         fontSize: 14,
-                        color: LightColors.textColor.withOpacity(0.54),
+                        color: LightColors.textColor.withValues(alpha: 0.54),
                       ),
                       textAlign: TextAlign.center,
                     ),
@@ -120,12 +126,13 @@ class EmailOtpScreen extends StatelessWidget {
                     ),
                     const SizedBox(height: 36),
 
-                    // ─── OTP Boxes ───────────────────────────────────────
+                    // OTP boxes
                     Row(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: List.generate(6, (i) {
                         final isFocused = ctrl.focusNodes[i].hasFocus;
-                        final isFilled = ctrl.boxControllers[i].text.isNotEmpty;
+                        final isFilled =
+                            ctrl.boxControllers[i].text.isNotEmpty;
 
                         return Container(
                           margin: const EdgeInsets.symmetric(horizontal: 5),
@@ -139,7 +146,7 @@ class EmailOtpScreen extends StatelessWidget {
                                   ? LightColors.primaryColor
                                   : isFilled
                                       ? LightColors.primaryColor
-                                          .withOpacity(0.5)
+                                          .withValues(alpha: 0.5)
                                       : const Color(0xFFDDDDDD),
                               width: isFocused ? 2 : 1.5,
                             ),
@@ -147,7 +154,7 @@ class EmailOtpScreen extends StatelessWidget {
                                 ? [
                                     BoxShadow(
                                       color: LightColors.primaryColor
-                                          .withOpacity(0.15),
+                                          .withValues(alpha: 0.15),
                                       blurRadius: 8,
                                       spreadRadius: 1,
                                     )
@@ -187,7 +194,7 @@ class EmailOtpScreen extends StatelessWidget {
 
                     const SizedBox(height: 32),
 
-                    // ─── Timer / Resend ───────────────────────────────────
+                    // Timer / Resend
                     ctrl.canResend
                         ? GestureDetector(
                             onTap: () => ctrl.resendOtp(context),
@@ -205,7 +212,8 @@ class EmailOtpScreen extends StatelessWidget {
                               text: 'Resend code in ',
                               style: TextStyle(
                                 fontSize: 14,
-                                color: LightColors.textColor.withOpacity(0.54),
+                                color: LightColors.textColor
+                                    .withValues(alpha: 0.54),
                               ),
                               children: [
                                 TextSpan(
@@ -221,7 +229,7 @@ class EmailOtpScreen extends StatelessWidget {
 
                     const Spacer(),
 
-                    // ─── Continue Button ──────────────────────────────────
+                    // Continue button
                     SizedBox(
                       width: double.infinity,
                       height: 55,
@@ -232,7 +240,7 @@ class EmailOtpScreen extends StatelessWidget {
                         style: ElevatedButton.styleFrom(
                           backgroundColor: LightColors.primaryColor,
                           disabledBackgroundColor:
-                              LightColors.primaryColor.withOpacity(0.4),
+                              LightColors.primaryColor.withValues(alpha: 0.4),
                           foregroundColor: Colors.white,
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(30),

@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import 'package:cargo/Features/home/home_screen.dart';
 import 'package:cargo/Features/search/presentation/search_screen.dart';
 import 'package:cargo/Features/cites/presentation/cities_screen.dart';
 import 'package:cargo/Features/profile/presentation/profile_screen.dart';
 import 'package:cargo/Features/chats/presentation/chats_screen.dart';
 import 'package:cargo/core/theme/light_color.dart';
+import 'package:cargo/core/controllers/user_avatar_controller.dart';
 
 
 void main() => runApp(const MyApp());
@@ -14,9 +16,12 @@ class MyApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const MaterialApp(
-      debugShowCheckedModeBanner: false,
-      home: MainScreen(),
+    return ChangeNotifierProvider(
+      create: (_) => UserAvatarController(),
+      child: const MaterialApp(
+        debugShowCheckedModeBanner: false,
+        home: MainScreen(),
+      ),
     );
   }
 }

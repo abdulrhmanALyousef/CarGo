@@ -5,7 +5,7 @@ import 'package:cloud_functions/cloud_functions.dart';
 import 'package:flutter/material.dart';
 import 'package:cargo/core/dataSource/remote_data/firebase_service.dart';
 import 'package:cargo/core/dataSource/local_data/preferences_manager.dart';
-import 'package:cargo/Features/Main/main_screen.dart';
+import 'package:cargo/Features/auth/signup_success_screen.dart';
 
 class EmailOtpController extends ChangeNotifier {
   final String email;
@@ -13,7 +13,8 @@ class EmailOtpController extends ChangeNotifier {
   final String fullName;
   final String phone;
   final String nationalId;
-  final File licenseFile;
+  final File? licenseFile;
+  final String role;
 
   EmailOtpController({
     required this.email,
@@ -21,7 +22,8 @@ class EmailOtpController extends ChangeNotifier {
     required this.fullName,
     required this.phone,
     required this.nationalId,
-    required this.licenseFile,
+    this.licenseFile,
+    this.role = 'renter',
   }) {
     for (final f in focusNodes) {
       f.addListener(notifyListeners);
@@ -98,7 +100,6 @@ class EmailOtpController extends ChangeNotifier {
     notifyListeners();
 
     try {
-      print('[EmailOtpController] resending OTP to $email');
       await FirebaseService().sendSignupOtp(email);
       _startTimer();
       if (context.mounted) {
@@ -110,7 +111,6 @@ class EmailOtpController extends ChangeNotifier {
         );
       }
     } catch (e) {
-      print('[EmailOtpController] resendOtp error: $e');
       _showError(context, _extractError(e));
     } finally {
       _isLoading = false;
@@ -120,12 +120,13 @@ class EmailOtpController extends ChangeNotifier {
 
   // ─── Verify OTP ───────────────────────────────────────────────────────────
   //
-  // Full sign-up sequence after OTP is confirmed:
+  // Full sign-up sequence:
   //   1. verifySignupOtp  → Cloud Function creates Firebase Auth user + Firestore doc
-  //   2. signInWithEmailAndPassword → client gets an authenticated session
-  //   3. uploadDrivingLicense       → now authenticated, upload is allowed
-  //   4. updateUserLicenseUrl       → write URL back to Firestore
-  //   5. Navigate to MainScreen
+  //   2. signInWithEmailAndPassword → client gets authenticated session
+  //   3. uploadDrivingLicense (if provided)
+  //   4. updateUserLicenseUrl (if license was uploaded)
+  //   5. updateUserRoles → writes role array to Firestore doc
+  //   6. Navigate to SignupSuccessScreen
 
   Future<void> verifyOtp(BuildContext context) async {
     if (!isComplete) return;
@@ -134,8 +135,7 @@ class EmailOtpController extends ChangeNotifier {
     notifyListeners();
 
     try {
-      // ── Step 1: verify OTP + create user ─────────────────────────────
-      print('[EmailOtpController] step 1 — verifySignupOtp');
+      // Step 1: verify OTP + create user via Cloud Function
       await FirebaseService().verifySignupOtp(
         email: email,
         code: otpCode,
@@ -145,39 +145,48 @@ class EmailOtpController extends ChangeNotifier {
         nationalId: nationalId,
       );
 
-      // ── Step 2: sign in client-side ───────────────────────────────────
-      print('[EmailOtpController] step 2 — signInWithEmailAndPassword');
-      final credential = await FirebaseAuth.instance.signInWithEmailAndPassword(
+      // Step 2: sign in client-side
+      final credential =
+          await FirebaseAuth.instance.signInWithEmailAndPassword(
         email: email,
         password: password,
       );
       final user = credential.user;
       if (user == null) throw Exception('Sign-in returned null user.');
 
-      // ── Step 3 & 4: upload driving license ────────────────────────────
-      print('[EmailOtpController] step 3 — uploadDrivingLicense uid=${user.uid}');
-      final licenseUrl = await FirebaseService().uploadDrivingLicense(
+      // Step 3 & 4: upload driving license (if provided)
+      if (licenseFile != null) {
+        final licenseUrl = await FirebaseService().uploadDrivingLicense(
+          uid: user.uid,
+          imageFile: licenseFile!,
+        );
+        await FirebaseService().updateUserLicenseUrl(
+          uid: user.uid,
+          licenseUrl: licenseUrl,
+        );
+      }
+
+      // Step 5: persist role
+      await FirebaseService().updateUserRoles(
         uid: user.uid,
-        imageFile: licenseFile,
-      );
-      print('[EmailOtpController] step 4 — updateUserLicenseUrl');
-      await FirebaseService().updateUserLicenseUrl(
-        uid: user.uid,
-        licenseUrl: licenseUrl,
+        roles: [role],
       );
 
-      // ── Step 5: navigate ──────────────────────────────────────────────
-      print('[EmailOtpController] step 5 — sign-up complete, navigating');
+      // Step 6: navigate to success screen
       await PreferencesManager().setBool('isLoggedIn', true);
       if (context.mounted) {
         Navigator.pushAndRemoveUntil(
           context,
-          MaterialPageRoute(builder: (_) => const MainScreen()),
+          MaterialPageRoute(
+            builder: (_) => SignupSuccessScreen(
+              fullName: fullName,
+              role: role,
+            ),
+          ),
           (_) => false,
         );
       }
     } catch (e) {
-      print('[EmailOtpController] verifyOtp error: $e');
       _showError(context, _extractError(e));
     } finally {
       _isLoading = false;
@@ -185,15 +194,9 @@ class EmailOtpController extends ChangeNotifier {
     }
   }
 
-  // Returns the real error message so it's visible during debugging.
-  // FirebaseFunctionsException carries the exact message thrown on the server.
   String _extractError(Object e) {
-    if (e is FirebaseFunctionsException) {
-      return e.message ?? e.code;
-    }
-    if (e is FirebaseAuthException) {
-      return e.message ?? e.code;
-    }
+    if (e is FirebaseFunctionsException) return e.message ?? e.code;
+    if (e is FirebaseAuthException) return e.message ?? e.code;
     return e.toString();
   }
 

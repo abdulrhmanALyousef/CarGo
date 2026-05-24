@@ -1,133 +1,88 @@
-import 'package:flutter/material.dart';
-import 'package:cargo/core/widgets/profile_icon_widget.dart';
-import 'package:cargo/core/theme/light_color.dart';
+import 'package:cached_network_image/cached_network_image.dart';
+import 'package:cargo/core/controllers/user_avatar_controller.dart';
 import 'package:cargo/core/dataSource/remote_data/firebase_service.dart';
-import 'package:cargo/core/dataSource/local_data/preferences_manager.dart';
 import 'package:cargo/Features/auth/login_screen.dart';
-import 'package:cargo/Features/Main/main_screen.dart';
-import 'package:cargo/Features/trips/my_trips_screen.dart';
-import 'package:cargo/Features/mycars/my_cars_screen.dart';
+import 'package:cargo/Features/profile/presentation/profile_screen.dart';
+import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 
-// ── ProfileMenuButton ─────────────────────────────────────────────────────────
-//
-// A ProfileIconWidget wrapped in a PopupMenuButton that shows the same
-// profile menu on every screen: Log In / My Trips / My Cars / Log Out.
-//
-// Drop-in replacement for the bare ProfileIconWidget wherever a tappable
-// profile menu is needed.
-//
-// Parameters mirror ProfileIconWidget:
-//   size            — circle diameter (default: 48)
-//   imagePath       — asset path (default: imageicon.png)
-//   backgroundColor — optional fill / fallback bg
-//   iconColor       — optional fallback icon colour
-//   color           — optional ring colour
-
+/// Avatar button used in the home screen header.
+/// Taps navigate to ProfileScreen (logged in) or LoginScreen (not logged in).
+/// The avatar image is kept in sync with the user's Firestore profileImageUrl
+/// via [UserAvatarController], which is provided at the app root.
 class ProfileMenuButton extends StatelessWidget {
   final double size;
-  final String imagePath;
   final Color? backgroundColor;
   final Color? iconColor;
-  final Color? color;
 
   const ProfileMenuButton({
     super.key,
     this.size = 48,
-    this.imagePath = 'assets/images/imageicon.png',
     this.backgroundColor,
     this.iconColor,
-    this.color,
   });
 
   @override
   Widget build(BuildContext context) {
-    return PopupMenuButton<String>(
-      offset: const Offset(0, 52),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      onSelected: (value) async {
-        if (value == 'login') {
-          Navigator.push(
-            context,
-            MaterialPageRoute(builder: (_) => const LoginScreen()),
-          );
-        } else if (value == 'my_trips') {
-          Navigator.push(
-            context,
-            MaterialPageRoute(builder: (_) => const MyTripsScreen()),
-          );
-        } else if (value == 'my_cars') {
-          Navigator.push(
-            context,
-            MaterialPageRoute(builder: (_) => const MyCarsScreen()),
-          );
-        } else if (value == 'logout') {
-          await FirebaseService().logout();
-          await PreferencesManager().setBool('isloggedin', false);
-          if (!context.mounted) return;
-          Navigator.pushAndRemoveUntil(
-            context,
-            MaterialPageRoute(builder: (_) => const MainScreen()),
-            (_) => false,
-          );
-        }
+    final imageUrl = context.watch<UserAvatarController>().profileImageUrl;
+
+    return GestureDetector(
+      onTap: () {
+        final destination = FirebaseService().isUserLoggedIn()
+            ? const ProfileScreen()
+            : const LoginScreen();
+        Navigator.push(
+          context,
+          MaterialPageRoute(builder: (_) => destination),
+        );
       },
-      itemBuilder: (_) {
-        final isLoggedIn = FirebaseService().isUserLoggedIn();
-        return [
-          if (!isLoggedIn)
-            const PopupMenuItem<String>(
-              value: 'login',
-              child: Row(
-                children: [
-                  Icon(Icons.login, size: 20, color: LightColors.primaryColor),
-                  SizedBox(width: 8),
-                  Text('Log In'),
-                ],
-              ),
-            )
-          else ...[
-            const PopupMenuItem<String>(
-              value: 'my_trips',
-              child: Row(
-                children: [
-                  Icon(Icons.luggage_outlined,
-                      size: 20, color: LightColors.primaryColor),
-                  SizedBox(width: 8),
-                  Text('My Trips'),
-                ],
-              ),
-            ),
-            const PopupMenuItem<String>(
-              value: 'my_cars',
-              child: Row(
-                children: [
-                  Icon(Icons.car_rental,
-                      size: 20, color: LightColors.primaryColor),
-                  SizedBox(width: 8),
-                  Text('My Cars'),
-                ],
-              ),
-            ),
-            const PopupMenuItem<String>(
-              value: 'logout',
-              child: Row(
-                children: [
-                  Icon(Icons.logout, size: 20, color: Colors.red),
-                  SizedBox(width: 8),
-                  Text('Log Out'),
-                ],
-              ),
-            ),
-          ],
-        ];
-      },
-      child: ProfileIconWidget(
+      child: _AvatarCircle(
+        imageUrl: imageUrl,
         size: size,
-        imagePath: imagePath,
         backgroundColor: backgroundColor,
         iconColor: iconColor,
-        color: color,
       ),
     );
   }
+}
+
+class _AvatarCircle extends StatelessWidget {
+  const _AvatarCircle({
+    required this.imageUrl,
+    required this.size,
+    this.backgroundColor,
+    this.iconColor,
+  });
+
+  final String imageUrl;
+  final double size;
+  final Color? backgroundColor;
+  final Color? iconColor;
+
+  @override
+  Widget build(BuildContext context) {
+    final bg = backgroundColor ?? Colors.grey.shade300;
+    return ClipOval(
+      child: Container(
+        width: size,
+        height: size,
+        color: bg,
+        child: imageUrl.isNotEmpty
+            ? CachedNetworkImage(
+                imageUrl: imageUrl,
+                width: size,
+                height: size,
+                fit: BoxFit.cover,
+                errorWidget: (_, __, ___) => _fallbackIcon(bg),
+              )
+            : _fallbackIcon(bg),
+      ),
+    );
+  }
+
+  Widget _fallbackIcon(Color bg) => Icon(
+        Icons.person,
+        color: iconColor ?? Colors.white,
+        size: size * 0.55,
+      );
 }
