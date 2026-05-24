@@ -3,7 +3,7 @@ import 'package:provider/provider.dart';
 import 'package:cargo/core/widgets/custom_text_formField.dart';
 import 'package:cargo/Features/auth/controllers/login_controller.dart';
 import 'package:cargo/core/theme/light_color.dart';
-import 'package:cargo/Features/auth/siginup_screen.dart';
+import 'package:cargo/Features/auth/welcome_screen.dart';
 import 'package:cargo/Features/auth/forgot_password_screen.dart';
 
 class LoginScreen extends StatefulWidget {
@@ -179,7 +179,7 @@ class _LoginScreenState extends State<LoginScreen> {
                           onTap: () => Navigator.push(
                             context,
                             MaterialPageRoute(
-                                builder: (_) => const SignUpScreen()),
+                                builder: (_) => const WelcomeScreen()),
                           ),
                           child: Text(
                             'Sign Up',

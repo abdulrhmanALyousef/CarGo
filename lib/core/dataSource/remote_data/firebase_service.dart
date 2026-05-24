@@ -231,4 +231,94 @@ class FirebaseService {
     final callable = _functions.httpsCallable('resetPassword');
     await callable.call<dynamic>({'email': email, 'newPassword': newPassword});
   }
+
+  // ── Profile Image ─────────────────────────────────────────────────────────
+
+  Future<String> uploadProfileImage({
+    required String uid,
+    required File imageFile,
+  }) async {
+    if (_auth.currentUser == null) {
+      throw Exception('User must be authenticated before uploading files');
+    }
+    final ref = _storage.ref().child('profile_images/$uid/profile.jpg');
+    await ref.putFile(imageFile);
+    return await ref.getDownloadURL();
+  }
+
+  // ── Update User Profile ───────────────────────────────────────────────────
+
+  Future<void> updateUserProfile({
+    required String uid,
+    required String fullName,
+    required String phone,
+    String? profileImageUrl,
+  }) async {
+    final updates = <String, dynamic>{
+      'fullName': fullName,
+      'phone': phone,
+    };
+    if (profileImageUrl != null) updates['profileImageUrl'] = profileImageUrl;
+    await _firestore.collection('users').doc(uid).update(updates);
+    await _auth.currentUser?.updateDisplayName(fullName);
+  }
+
+  // ── Delete Account ────────────────────────────────────────────────────────
+
+  Future<void> deleteAccount() async {
+    final user = _auth.currentUser;
+    if (user == null) throw Exception('Not authenticated');
+    await _firestore.collection('users').doc(user.uid).delete();
+    await user.delete();
+  }
+
+  // ── Favorites ─────────────────────────────────────────────────────────────
+
+  Future<void> toggleFavorite(String carId) async {
+    final uid = _auth.currentUser?.uid;
+    if (uid == null) throw Exception('Not authenticated');
+    final docRef = _firestore.collection('users').doc(uid);
+    final doc = await docRef.get();
+    final favorites = List<String>.from(doc.data()?['favorites'] ?? []);
+    if (favorites.contains(carId)) {
+      await docRef.update({'favorites': FieldValue.arrayRemove([carId])});
+    } else {
+      await docRef.update({'favorites': FieldValue.arrayUnion([carId])});
+    }
+  }
+
+  Future<bool> isFavorite(String carId) async {
+    final uid = _auth.currentUser?.uid;
+    if (uid == null) return false;
+    final doc = await _firestore.collection('users').doc(uid).get();
+    final favorites = List<String>.from(doc.data()?['favorites'] ?? []);
+    return favorites.contains(carId);
+  }
+
+  // ── Update User Roles ─────────────────────────────────────────────────────
+
+  Future<void> updateUserRoles({
+    required String uid,
+    required List<String> roles,
+  }) async {
+    await _firestore.collection('users').doc(uid).update({'roles': roles});
+  }
+
+  Future<List<Map<String, dynamic>>> getFavoriteCars() async {
+    final uid = _auth.currentUser?.uid;
+    if (uid == null) return [];
+    final doc = await _firestore.collection('users').doc(uid).get();
+    final ids = List<String>.from(doc.data()?['favorites'] ?? []);
+    if (ids.isEmpty) return [];
+    final result = <Map<String, dynamic>>[];
+    for (int i = 0; i < ids.length; i += 10) {
+      final batch = ids.sublist(i, (i + 10).clamp(0, ids.length));
+      final snap = await _firestore
+          .collection('cars')
+          .where(FieldPath.documentId, whereIn: batch)
+          .get();
+      result.addAll(snap.docs.map((d) => {'id': d.id, ...d.data()}));
+    }
+    return result;
+  }
 }
