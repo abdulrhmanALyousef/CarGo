@@ -39,26 +39,77 @@ class ChatController extends ChangeNotifier {
   }
 
   // ─── Ensure chat document exists ──────────────────────────────────────────
-  // Uses set() with merge so it is safe whether the doc exists or not.
   Future<void> _ensureChatExists() async {
     print('[Chat] _ensureChatExists — chats/$chatId');
     try {
-      await _firestore.collection('chats').doc(chatId).set(
-        {
+      final docRef = _firestore.collection('chats').doc(chatId);
+      final doc = await docRef.get();
+
+      if (!doc.exists) {
+        // Only set initial fields on brand-new chat documents.
+        await docRef.set({
           'chatId': chatId,
           'participants': [currentUserId, otherUserId],
           'lastMessage': '',
+          'lastMessageType': 'text',
           'lastTimestamp': FieldValue.serverTimestamp(),
           'createdAt': FieldValue.serverTimestamp(),
-        },
-        SetOptions(merge: true), // no-op if doc already exists
-      );
+        });
+      }
+
       _chatReady = true;
       print('[Chat] chat document ready');
     } catch (e) {
       print('[Chat] ERROR creating chat document: $e');
-      // ⚠️ If this prints PERMISSION_DENIED, add Firestore rules — see bottom
-      // of this file for the required rules.
+    }
+  }
+
+  // ─── Send location message ──────────────────────────────────────────────
+  Future<void> sendLocation({
+    required double latitude,
+    required double longitude,
+    required String address,
+  }) async {
+    if (_isSending) return;
+
+    if (!_chatReady) await _ensureChatExists();
+
+    _isSending = true;
+    notifyListeners();
+
+    try {
+      await _firestore
+          .collection('chats')
+          .doc(chatId)
+          .collection('messages')
+          .add({
+        'senderId': currentUserId,
+        'receiverId': otherUserId,
+        'type': 'location',
+        'latitude': latitude,
+        'longitude': longitude,
+        'address': address,
+        'text': '',
+        'timestamp': FieldValue.serverTimestamp(),
+        'isRead': false,
+      });
+
+      await _firestore.collection('chats').doc(chatId).set(
+        {
+          'lastMessage': 'Location',
+          'lastMessageType': 'location',
+          'lastTimestamp': FieldValue.serverTimestamp(),
+        },
+        SetOptions(merge: true),
+      );
+      print('[Chat] location metadata updated — lastMessage=Location, lastMessageType=location');
+
+      _scrollToBottom();
+    } catch (e) {
+      print('[Chat] ERROR sending location: $e');
+    } finally {
+      _isSending = false;
+      notifyListeners();
     }
   }
 
@@ -97,11 +148,12 @@ class ChatController extends ChangeNotifier {
       await _firestore.collection('chats').doc(chatId).set(
         {
           'lastMessage': text,
+          'lastMessageType': 'text',
           'lastTimestamp': FieldValue.serverTimestamp(),
         },
         SetOptions(merge: true),
       );
-      print('[Chat] chat metadata updated');
+      print('[Chat] chat metadata updated — lastMessage=$text, lastMessageType=text');
 
       _scrollToBottom();
     } catch (e) {

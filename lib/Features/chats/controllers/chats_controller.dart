@@ -10,6 +10,7 @@ class ChatListItem {
   final String otherUserId;
   final String otherUserName;
   final String lastMessage;
+  final String lastMessageType;
   final DateTime? lastTimestamp;
 
   const ChatListItem({
@@ -17,6 +18,7 @@ class ChatListItem {
     required this.otherUserId,
     required this.otherUserName,
     required this.lastMessage,
+    required this.lastMessageType,
     required this.lastTimestamp,
   });
 }
@@ -52,11 +54,6 @@ class ChatsController extends ChangeNotifier {
       return;
     }
 
-    print('[ChatsController] starting stream for uid=$uid');
-
-    // ⚠️ This query requires a composite index in Firestore:
-    //    collection: chats | field: participants (Array) + lastTimestamp (Desc)
-    //    Firestore will print a link in the logs to create it automatically.
     _sub = _db
         .collection('chats')
         .where('participants', arrayContains: uid)
@@ -73,8 +70,6 @@ class ChatsController extends ChangeNotifier {
     QuerySnapshot<Map<String, dynamic>> snap,
     String currentUserId,
   ) async {
-    print('[ChatsController] received ${snap.docs.length} chat(s)');
-
     final result = <ChatListItem>[];
 
     for (final doc in snap.docs) {
@@ -93,11 +88,59 @@ class ChatsController extends ChangeNotifier {
       final raw = data['lastTimestamp'];
       if (raw is Timestamp) lastTime = raw.toDate();
 
+      var lastMsg = data['lastMessage'] as String? ?? '';
+      var lastType = data['lastMessageType'] as String? ?? 'text';
+
+      // Self-heal: if lastMessage is empty, fetch the actual last message
+      // from the subcollection. This repairs docs corrupted by the old
+      // _ensureChatExists that blanked lastMessage on every open.
+      if (lastMsg.isEmpty) {
+        try {
+          final msgSnap = await _db
+              .collection('chats')
+              .doc(doc.id)
+              .collection('messages')
+              .orderBy('timestamp', descending: true)
+              .limit(1)
+              .get();
+
+          if (msgSnap.docs.isNotEmpty) {
+            final msgData = msgSnap.docs.first.data();
+            final msgType = msgData['type'] as String? ?? 'text';
+
+            if (msgType == 'location') {
+              lastMsg = 'Location';
+              lastType = 'location';
+            } else {
+              lastMsg = msgData['text'] as String? ?? '';
+              lastType = 'text';
+            }
+
+            // Also repair the chat document so this doesn't repeat.
+            doc.reference.set({
+              'lastMessage': lastMsg,
+              'lastMessageType': lastType,
+            }, SetOptions(merge: true));
+          }
+        } catch (_) {
+          // Non-critical — preview just stays empty this time.
+        }
+      }
+
+      // Infer type for legacy docs that stored '📍 Location' before
+      // lastMessageType was added.
+      if (lastType == 'text' && lastMsg == '\u{1F4CD} Location') {
+        lastType = 'location';
+      }
+
+      print('[ChatsList] chat=${doc.id} lastMessage="$lastMsg" lastMessageType=$lastType');
+
       result.add(ChatListItem(
         chatId: doc.id,
         otherUserId: otherId,
         otherUserName: otherName,
-        lastMessage: data['lastMessage'] as String? ?? '',
+        lastMessage: lastMsg,
+        lastMessageType: lastType,
         lastTimestamp: lastTime,
       ));
     }
@@ -105,6 +148,7 @@ class ChatsController extends ChangeNotifier {
     _chats = result;
     _isLoading = false;
     _error = null;
+    print('[ChatsList] rebuilt with ${result.length} chats');
     notifyListeners();
   }
 
@@ -117,10 +161,8 @@ class ChatsController extends ChangeNotifier {
       final data = await FirebaseService().getUserData(uid: uid);
       final name = data?['fullName'] as String? ?? 'User';
       _nameCache[uid] = name;
-      print('[ChatsController] fetched name for uid=$uid → $name');
       return name;
-    } catch (e) {
-      print('[ChatsController] ERROR fetching name for uid=$uid: $e');
+    } catch (_) {
       _nameCache[uid] = 'User';
       return 'User';
     }
@@ -128,9 +170,6 @@ class ChatsController extends ChangeNotifier {
 
   // ─── Handle stream errors ─────────────────────────────────────────────────
   void _onError(Object e) {
-    print('[ChatsController] stream ERROR: $e');
-    // ⚠️ PERMISSION_DENIED → add Firestore rules for chats/:
-    //    match /chats/{chatId} { allow read, write: if request.auth != null; }
     _error = e.toString();
     _isLoading = false;
     notifyListeners();
