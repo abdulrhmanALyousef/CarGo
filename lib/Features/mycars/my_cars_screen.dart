@@ -2,8 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:cargo/Features/mycars/my_cars_controller.dart';
+import 'package:cargo/Features/add_car/add_car_screen.dart';
 import 'package:cargo/core/theme/light_color.dart';
 import 'package:cargo/core/widgets/app_button.dart';
+import 'package:cargo/core/widgets/hub_info_card.dart';
 import 'package:cargo/core/widgets/profile_menu_button.dart';
 import 'package:cargo/models/car_model.dart';
 
@@ -33,6 +35,24 @@ class MyCarsScreen extends StatelessWidget {
                   child: ProfileMenuButton(),
                 ),
               ],
+            ),
+            floatingActionButton: FloatingActionButton.extended(
+              backgroundColor: LightColors.primaryColor,
+              onPressed: () async {
+                await Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => const AddCarScreen()),
+                );
+                if (context.mounted) {
+                  context.read<MyCarsController>().fetchMyCars();
+                }
+              },
+              icon: const Icon(Icons.add_rounded, color: Colors.white),
+              label: const Text(
+                'Add Car',
+                style: TextStyle(
+                    color: Colors.white, fontWeight: FontWeight.w600),
+              ),
             ),
             body: _buildBody(context, ctrl),
           );
@@ -132,6 +152,10 @@ class _CarSection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final statusMeta = kHubStatusMeta[car.hubStatus] ??
+        (label: car.hubStatus, color: Colors.grey);
+    final isAwaitingDropoff = car.hubStatus == 'awaiting_dropoff';
+
     return Card(
       elevation: 2,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
@@ -162,7 +186,7 @@ class _CarSection extends StatelessWidget {
               children: [
                 Flexible(
                   child: Text(
-                    '${car.brand} ${car.model}',
+                    '${car.brand} ${car.model} (${car.year})',
                     style: const TextStyle(
                       fontSize: 16,
                       fontWeight: FontWeight.w700,
@@ -182,22 +206,52 @@ class _CarSection extends StatelessWidget {
             ),
           ),
 
+          // ── Hub status badge ───────────────────────────────────────────────
           Padding(
-            padding: const EdgeInsets.fromLTRB(14, 4, 14, 0),
+            padding: const EdgeInsets.fromLTRB(14, 6, 14, 0),
             child: Row(
               children: [
+                _HubStatusBadge(
+                    label: statusMeta.label, color: statusMeta.color),
+                const SizedBox(width: 8),
                 const Icon(Icons.location_on,
-                    size: 13, color: LightColors.primaryColor),
+                    size: 12, color: LightColors.primaryColor),
                 const SizedBox(width: 2),
-                Text(
-                  car.location,
-                  style: TextStyle(
-                      fontSize: 12,
-                      color: LightColors.textColor.withOpacity(0.5)),
+                Flexible(
+                  child: Text(
+                    car.hubLocation,
+                    style: const TextStyle(
+                        fontSize: 11, color: Color(0xFF888888)),
+                    overflow: TextOverflow.ellipsis,
+                  ),
                 ),
               ],
             ),
           ),
+
+          // ── Hub delivery instructions + confirm button ──────────────────────
+          if (isAwaitingDropoff) ...[
+            Padding(
+              padding: const EdgeInsets.fromLTRB(14, 10, 14, 0),
+              child: HubDropOffInstructionsCard(
+                firstBookingDate: car.availableFrom,
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(14, 8, 14, 0),
+              child: AppButton(
+                text: 'I\'ve Delivered My Car to the Hub',
+                onTap: () => context
+                    .read<MyCarsController>()
+                    .confirmDelivery(car, context),
+                icon: const Icon(Icons.check_circle_outline,
+                    size: 16, color: Colors.white),
+                borderRadius: 10,
+                height: 44,
+                fontSize: 13,
+              ),
+            ),
+          ],
 
           const SizedBox(height: 12),
 
@@ -252,6 +306,46 @@ class _CarSection extends StatelessWidget {
       color: Colors.grey.shade200,
       child:
           const Icon(Icons.directions_car_outlined, size: 48, color: Colors.grey),
+    );
+  }
+}
+
+// ── Hub Status Badge ──────────────────────────────────────────────────────────
+
+class _HubStatusBadge extends StatelessWidget {
+  const _HubStatusBadge({required this.label, required this.color});
+
+  final String label;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: color.withValues(alpha: 0.4)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            width: 6,
+            height: 6,
+            decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+          ),
+          const SizedBox(width: 5),
+          Text(
+            label,
+            style: TextStyle(
+              fontSize: 11,
+              fontWeight: FontWeight.w600,
+              color: color,
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

@@ -1,3 +1,4 @@
+import 'package:cargo/Features/add_car/add_car_screen.dart';
 import 'package:cargo/Features/mycars/my_cars_screen.dart';
 import 'package:cargo/Features/profile/controllers/profile_controller.dart';
 import 'package:cargo/Features/profile/presentation/favorites_screen.dart';
@@ -91,11 +92,11 @@ class _OwnerFleetCard extends StatelessWidget {
               ProfileTile(
                 icon: Icons.add_circle_outline_rounded,
                 title: 'Add New Car',
-                subtitle: 'List a new vehicle',
+                subtitle: 'List a new vehicle at CarGo Hub',
                 isLast: true,
                 onTap: () => Navigator.push(
                   context,
-                  MaterialPageRoute(builder: (_) => const MyCarsScreen()),
+                  MaterialPageRoute(builder: (_) => const AddCarScreen()),
                 ),
               ),
             ],

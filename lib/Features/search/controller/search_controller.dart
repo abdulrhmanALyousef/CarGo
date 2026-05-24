@@ -73,13 +73,16 @@ class SearchCarController extends ChangeNotifier {
     try {
       final snapshot = await _firestore.collection('cars').get();
       final currentUid = FirebaseAuth.instance.currentUser?.uid;
+      const visibleStatuses = {'at_hub', 'available'};
       _allCars = snapshot.docs
           .map((doc) {
             final data = doc.data();
             data['id'] = doc.id;
             return Car.fromJson(data);
           })
-          .where((car) => car.ownerId != currentUid)
+          .where((car) =>
+              car.ownerId != currentUid &&
+              visibleStatuses.contains(car.hubStatus))
           .toList();
       _applyFilters();
     } catch (e) {

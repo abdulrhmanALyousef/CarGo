@@ -3,6 +3,8 @@ import 'package:provider/provider.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:cargo/Features/trips/my_trips_controller.dart';
 import 'package:cargo/core/widgets/app_button.dart';
+import 'package:cargo/core/widgets/hub_info_card.dart';
+import 'package:cargo/core/widgets/hub_map_card.dart';
 import 'package:cargo/core/widgets/profile_menu_button.dart';
 import 'package:cargo/core/theme/light_color.dart';
 import 'package:cargo/models/booking_model.dart';
@@ -293,6 +295,13 @@ class _TripCard extends StatelessWidget {
                   icon: Icons.attach_money_rounded,
                   text: 'SAR ${booking.totalPrice.toStringAsFixed(0)} total',
                 ),
+
+                const SizedBox(height: 8),
+                // Confirmed trips show the full map card; others show compact.
+                if (booking.status == 'confirmed')
+                  const HubMapCard()
+                else
+                  const HubInfoCard(compact: true),
 
                 // ── Owner-approval hint (pending only) ────────────────────
                 if (booking.status == 'pending') ...[

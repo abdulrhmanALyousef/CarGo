@@ -6,6 +6,7 @@ import 'package:cargo/Features/booking/booking_controller.dart';
 import 'package:cargo/Features/auth/login_screen.dart';
 import 'package:cargo/Features/Main/main_screen.dart';
 import 'package:cargo/core/widgets/app_button.dart';
+import 'package:cargo/core/widgets/hub_map_card.dart';
 import 'package:cargo/core/widgets/profile_menu_button.dart';
 import 'package:cargo/core/theme/light_color.dart';
 
@@ -302,6 +303,20 @@ class BookingScreen extends StatelessWidget {
           ],
 
           const SizedBox(height: 24),
+
+          // ── Hub Pickup & Return Info ───────────────────────────────────
+          const SizedBox(height: 4),
+          const Text(
+            'Pickup & Return Location',
+            style: TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.w700,
+              color: LightColors.textColor,
+            ),
+          ),
+          const SizedBox(height: 10),
+          const HubMapCard(),
+          const SizedBox(height: 20),
 
           // ── Price Summary ──────────────────────────────────────────────
           if (ctrl.rentalDays > 0) ...[

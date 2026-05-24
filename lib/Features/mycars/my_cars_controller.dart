@@ -7,6 +7,17 @@ import 'package:cargo/models/booking_model.dart';
 import 'package:cargo/models/car_model.dart';
 import 'package:cargo/Features/chats/presentation/chat_screen.dart';
 
+// Hub status labels for display in the owner dashboard.
+const Map<String, ({String label, Color color})> kHubStatusMeta = {
+  'awaiting_dropoff': (label: 'Awaiting Drop-Off', color: Color(0xFFF57F17)),
+  'at_hub': (label: 'At Hub', color: Color(0xFF1565C0)),
+  'available': (label: 'Available', color: Color(0xFF2E7D32)),
+  'booked': (label: 'Booked', color: Color(0xFF6A1B9A)),
+  'in_trip': (label: 'In Trip', color: Color(0xFF00695C)),
+  'maintenance': (label: 'Maintenance', color: Color(0xFFB71C1C)),
+  'unavailable': (label: 'Unavailable', color: Color(0xFF616161)),
+};
+
 // ── Booking Request Entry ──────────────────────────────────────────────────────
 // Pairs a Booking with the customer's display name.
 class BookingRequestEntry {
@@ -277,6 +288,69 @@ class MyCarsController extends ChangeNotifier {
       if (!start.isAfter(eEnd) && !end.isBefore(eStart)) return true;
     }
     return false;
+  }
+
+  // ── Confirm Hub Delivery ──────────────────────────────────────────────────
+  // Owner self-reports that they have dropped the car at the CarGo Hub.
+  // Status: awaiting_dropoff → at_hub, available = true.
+  Future<void> confirmDelivery(Car car, BuildContext context) async {
+    try {
+      await _firestore.collection('cars').doc(car.id).update({
+        'hubStatus': 'at_hub',
+        'available': true,
+      });
+
+      final idx = _cars.indexWhere((c) => c.id == car.id);
+      if (idx != -1) {
+        _cars[idx] = car.copyWith(hubStatus: 'at_hub', available: true);
+        notifyListeners();
+      }
+
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+              'Delivery confirmed! Your car is now visible to renters.',
+            ),
+            backgroundColor: Color(0xFF2E7D32),
+            duration: Duration(seconds: 4),
+          ),
+        );
+      }
+    } on FirebaseException catch (e) {
+      _showError(context, 'Firebase error [${e.code}]: ${e.message ?? e.toString()}');
+    } catch (e) {
+      _showError(context, e.toString());
+    }
+  }
+
+  // ── Update Hub Status (owner action) ─────────────────────────────────────
+  Future<void> setHubStatus(
+    Car car,
+    String newStatus,
+    BuildContext context,
+  ) async {
+    try {
+      final update = <String, dynamic>{'hubStatus': newStatus};
+      if (newStatus == 'available' || newStatus == 'at_hub') {
+        update['available'] = true;
+      } else if (newStatus == 'unavailable' || newStatus == 'maintenance') {
+        update['available'] = false;
+      }
+
+      await _firestore.collection('cars').doc(car.id).update(update);
+
+      final idx = _cars.indexWhere((c) => c.id == car.id);
+      if (idx != -1) {
+        _cars[idx] = car.copyWith(
+          hubStatus: newStatus,
+          available: update['available'] as bool? ?? car.available,
+        );
+        notifyListeners();
+      }
+    } on FirebaseException catch (e) {
+      _showError(context, 'Firebase error [${e.code}]: ${e.message ?? e.toString()}');
+    }
   }
 
   void _showError(BuildContext context, String message) {

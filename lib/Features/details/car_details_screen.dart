@@ -8,6 +8,7 @@ import 'package:cargo/models/review_model.dart';
 import 'package:cargo/Features/details/controllers/car_details_controller.dart';
 import 'package:cargo/core/theme/light_color.dart';
 import 'package:cargo/core/widgets/app_button.dart';
+import 'package:cargo/core/widgets/hub_map_card.dart';
 import 'package:cargo/core/widgets/profile_icon_widget.dart';
 import 'package:cargo/core/widgets/profile_menu_button.dart';
 import 'package:cargo/Features/reviews/reviews_screen.dart';
@@ -467,6 +468,19 @@ class CarDetailsScreen extends StatelessWidget {
                           return _buildRatingBar(star, pct);
                         }),
 
+                        const SizedBox(height: 24),
+
+                        // ── Hub Pickup & Return ─────────────────────────
+                        const SizedBox(height: 24),
+                        const Text(
+                          'Pickup & Return',
+                          style: TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w700,
+                              color: LightColors.textColor),
+                        ),
+                        const SizedBox(height: 10),
+                        const HubMapCard(),
                         const SizedBox(height: 24),
 
                         if (ctrl.isLoadingReviews)

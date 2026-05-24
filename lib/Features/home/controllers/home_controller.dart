@@ -12,6 +12,7 @@ class HomeController extends ChangeNotifier {
 
   String _location = '';
   DateTimeRange? _dateRange;
+  String _searchQuery = '';
 
   // _cars holds every car fetched from Firestore.
   // _displayedCars is the subset shown after search/filter.
@@ -26,12 +27,16 @@ class HomeController extends ChangeNotifier {
 
   String get location => _location;
   DateTimeRange? get dateRange => _dateRange;
+  String get searchQuery => _searchQuery;
+
+  /// True when any active filter is applied.
+  bool get hasActiveFilter => _dateRange != null || _searchQuery.isNotEmpty;
 
   /// The list the UI renders — filtered when the user has searched.
   List<Car> get cars => _displayedCars;
 
   String get dateText {
-    if (_dateRange == null) return '15.08 – 19.8';
+    if (_dateRange == null) return 'Select dates';
     String fmt(DateTime d) =>
         '${d.day.toString().padLeft(2, '0')}.${d.month.toString().padLeft(2, '0')}';
     return '${fmt(_dateRange!.start)} – ${fmt(_dateRange!.end)}';
@@ -47,40 +52,67 @@ class HomeController extends ChangeNotifier {
     notifyListeners();
   }
 
-  // ── Search ────────────────────────────────────────────────────────────────
-  // Filters _displayedCars by the selected date range.
-  // A car is included when the requested rental window fits inside
-  // the car's availability window (availableFrom … availableTo).
-  void search(BuildContext context) {
-    if (_location.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please select a pick up location')),
-      );
-      return;
-    }
-    _applyDateFilter();
+  void setSearchQuery(String val) {
+    _searchQuery = val.trim();
+    _applyFilters();
   }
 
-  void _applyDateFilter() {
-    if (_dateRange == null) {
-      _displayedCars = List.from(_cars);
-    } else {
+  void clearFilters() {
+    _location = '';
+    _dateRange = null;
+    _searchQuery = '';
+    _displayedCars = List.from(_cars);
+    notifyListeners();
+  }
+
+  // ── Search ──────────────────────────────────────────────────────────────────
+  // Applies all active filters: text query, date range, and location.
+  // Location is treated as optional for broader discoverability.
+  void search(BuildContext context) {
+    _applyFilters();
+  }
+
+  void _applyFilters() {
+    var filtered = List<Car>.from(_cars);
+
+    // ── Text search: brand, model, category, city, location ────────────────
+    if (_searchQuery.isNotEmpty) {
+      final q = _searchQuery.toLowerCase();
+      filtered = filtered.where((car) {
+        return car.brand.toLowerCase().contains(q) ||
+            car.model.toLowerCase().contains(q) ||
+            car.category.toLowerCase().contains(q) ||
+            car.city.toLowerCase().contains(q) ||
+            car.location.toLowerCase().contains(q) ||
+            car.hubLocation.toLowerCase().contains(q);
+      }).toList();
+    }
+
+    // ── Date range: check car availability window ───────────────────────────
+    if (_dateRange != null) {
       final start = _dateRange!.start;
       final end = _dateRange!.end;
-      _displayedCars = _cars.where((car) {
-        if (car.availableFrom != null && start.isBefore(car.availableFrom!)) {
+      filtered = filtered.where((car) {
+        if (car.availableFrom != null &&
+            start.isBefore(car.availableFrom!)) {
           return false;
         }
         if (car.availableTo != null && end.isAfter(car.availableTo!)) {
           return false;
         }
         return true;
+        // TODO: Also cross-check against confirmed bookings for this car
+        // to prevent showing cars already booked for the selected dates.
+        // Requires a Firestore query per car — implement when booking
+        // volume justifies the extra reads.
       }).toList();
     }
+
+    _displayedCars = filtered;
     notifyListeners();
   }
 
-  // ── Pickers ───────────────────────────────────────────────────────────────
+  // ── Pickers ─────────────────────────────────────────────────────────────────
 
   Future<void> openLocation(BuildContext context) async {
     final result = await showModalBottomSheet<String>(
@@ -114,7 +146,7 @@ class HomeController extends ChangeNotifier {
     if (result != null) setDateRange(result);
   }
 
-  // ── Data ──────────────────────────────────────────────────────────────────
+  // ── Data ─────────────────────────────────────────────────────────────────────
 
   Future<void> fetchCars() async {
     _isLoadingCars = true;
@@ -124,10 +156,29 @@ class HomeController extends ChangeNotifier {
     try {
       final data = await FirebaseService().getCars();
       final currentUid = FirebaseAuth.instance.currentUser?.uid;
-      _cars = data
+
+      // TODO: Replace this query with AI recommendation logic.
+      // Future recommendation system should rank cars based on renter history,
+      // preferences, past booked categories, location, and interaction behavior.
+
+      // Show all cars that belong to other owners. Hub status filtering is done
+      // here to include cars that are ready for rental at the hub while also
+      // showing legacy cars (no hubStatus field) for backwards compatibility
+      // during development. In production, narrow this to visibleStatuses only.
+      const visibleStatuses = {'at_hub', 'available', 'ready_for_rental'};
+
+      var allOtherCars = data
           .map((json) => Car.fromJson(json))
           .where((car) => car.ownerId != currentUid)
           .toList();
+
+      // If filtering by hub status returns results, use filtered list.
+      // If not (legacy data without hubStatus), show all other-owner cars.
+      final hubFiltered = allOtherCars
+          .where((car) => visibleStatuses.contains(car.hubStatus))
+          .toList();
+
+      _cars = hubFiltered.isNotEmpty ? hubFiltered : allOtherCars;
       _displayedCars = List.from(_cars); // show all on first load
     } catch (e) {
       _carsError = e.toString();

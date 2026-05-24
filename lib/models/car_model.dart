@@ -1,5 +1,9 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 
+// Hub operational statuses — drives visibility and owner dashboard display.
+// awaiting_dropoff → at_hub → available → booked → in_trip → (back to available)
+const String kHubLocation = 'CarGo Hub — Al Yasmin, Riyadh';
+
 class Car {
   final String id;
   final bool available;
@@ -22,6 +26,10 @@ class Car {
   final DateTime? availableFrom;
   final DateTime? availableTo;
   final String city;
+  final String hubStatus;
+  final String hubLocation;
+  final String category;
+  final String fuelType;
 
   Car({
     required this.id,
@@ -45,6 +53,10 @@ class Car {
     this.availableFrom,
     this.availableTo,
     this.city = '',
+    this.hubStatus = 'awaiting_dropoff',
+    this.hubLocation = kHubLocation,
+    this.category = '',
+    this.fuelType = 'Petrol',
   });
 
   factory Car.fromJson(Map<String, dynamic> json) {
@@ -72,6 +84,10 @@ class Car {
       availableFrom: _parseDate(json['availableFrom']),
       availableTo: _parseDate(json['availableTo']),
       city: json['city'] as String? ?? '',
+      hubStatus: json['hubStatus'] as String? ?? 'awaiting_dropoff',
+      hubLocation: json['hubLocation'] as String? ?? kHubLocation,
+      category: json['category'] as String? ?? '',
+      fuelType: json['fuelType'] as String? ?? 'Petrol',
     );
   }
 
@@ -102,7 +118,44 @@ class Car {
       'availableTo':
           availableTo != null ? Timestamp.fromDate(availableTo!) : null,
       'city': city,
+      'hubStatus': hubStatus,
+      'hubLocation': hubLocation,
+      'category': category,
+      'fuelType': fuelType,
     };
+  }
+
+  Car copyWith({
+    String? hubStatus,
+    bool? available,
+  }) {
+    return Car(
+      id: id,
+      available: available ?? this.available,
+      brand: brand,
+      model: model,
+      images: images,
+      isElectric: isElectric,
+      km: km,
+      location: location,
+      overview: overview,
+      ownerId: ownerId,
+      pricePerDay: pricePerDay,
+      rating: rating,
+      reviewsCount: reviewsCount,
+      seats: seats,
+      transmission: transmission,
+      year: year,
+      ownerName: ownerName,
+      ownerImage: ownerImage,
+      availableFrom: availableFrom,
+      availableTo: availableTo,
+      city: city,
+      hubStatus: hubStatus ?? this.hubStatus,
+      hubLocation: hubLocation,
+      category: category,
+      fuelType: fuelType,
+    );
   }
 }
 
