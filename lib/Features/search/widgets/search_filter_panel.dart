@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:cargo/Features/search/controller/search_controller.dart';
 import 'package:cargo/core/theme/light_color.dart';
@@ -33,22 +34,42 @@ class SearchFilterPanel extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               // ── Price Range ───────────────────────────────────────────
-              const Text(
-                'Price Range:',
-                style: TextStyle(
-                  fontSize: 15,
-                  fontWeight: FontWeight.w600,
-                  color: LightColors.textColor,
-                ),
-              ),
-              const SizedBox(height: 4),
+              _SectionTitle('Price Range (SAR)'),
+              const SizedBox(height: 12),
 
+              // Min / Max inputs with +/- buttons
+              Row(
+                children: [
+                  Expanded(
+                    child: _PriceInput(
+                      label: 'Min',
+                      controller: ctrl.minPriceController,
+                      onIncrement: ctrl.incrementMinPrice,
+                      onDecrement: ctrl.decrementMinPrice,
+                    ),
+                  ),
+                  const SizedBox(width: 16),
+                  Expanded(
+                    child: _PriceInput(
+                      label: 'Max',
+                      controller: ctrl.maxPriceController,
+                      onIncrement: ctrl.incrementMaxPrice,
+                      onDecrement: ctrl.decrementMaxPrice,
+                    ),
+                  ),
+                ],
+              ),
+
+              const SizedBox(height: 8),
+
+              // Range slider
               SliderTheme(
                 data: SliderTheme.of(context).copyWith(
                   activeTrackColor: LightColors.primaryColor,
                   inactiveTrackColor: Colors.grey.shade200,
                   thumbColor: LightColors.primaryColor,
-                  overlayColor: LightColors.primaryColor.withValues(alpha: 0.15),
+                  overlayColor:
+                      LightColors.primaryColor.withValues(alpha: 0.15),
                   thumbShape:
                       const RoundSliderThumbShape(enabledThumbRadius: 8),
                   trackHeight: 4,
@@ -63,70 +84,59 @@ class SearchFilterPanel extends StatelessWidget {
                 ),
               ),
 
-              // ── Price labels ──────────────────────────────────────────
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  _PriceChip('${ctrl.priceRange.start.round()} SAR'),
-                  _PriceChip('${ctrl.priceRange.end.round()} SAR'),
-                ],
+              const SizedBox(height: 20),
+
+              // ── Seats ────────────────────────────────────────────────
+              _SectionTitle('Seats'),
+              const SizedBox(height: 10),
+              _ChipRow(
+                options: ctrl.seatOptions
+                    .map((s) => s == '7+' ? '7+' : '$s Seats')
+                    .toList(),
+                values: ctrl.seatOptions,
+                selected: ctrl.selectedSeats,
+                onSelected: (val) => ctrl.selectSeats(val),
+              ),
+
+              const SizedBox(height: 20),
+
+              // ── Transmission ─────────────────────────────────────────
+              _SectionTitle('Transmission'),
+              const SizedBox(height: 10),
+              _ChipRow(
+                options: ctrl.transmissionOptions,
+                values: ctrl.transmissionOptions,
+                selected: ctrl.selectedTransmission,
+                onSelected: (val) => ctrl.selectTransmission(val),
+              ),
+
+              const SizedBox(height: 20),
+
+              // ── Fuel Type ────────────────────────────────────────────
+              _SectionTitle('Fuel Type'),
+              const SizedBox(height: 10),
+              _ChipRow(
+                options: ctrl.fuelOptions,
+                values: ctrl.fuelOptions,
+                selected: ctrl.selectedFuel,
+                onSelected: (val) => ctrl.selectFuel(val),
               ),
 
               const SizedBox(height: 16),
 
-              // ── Car Type Grid ─────────────────────────────────────────
-              GridView.count(
-                crossAxisCount: 3,
-                crossAxisSpacing: 10,
-                mainAxisSpacing: 10,
-                childAspectRatio: 3.5,
-                shrinkWrap: true,
-                physics: const NeverScrollableScrollPhysics(),
-                children: ctrl.carTypes.map((type) {
-                  final isSelected = ctrl.selectedTypes.contains(type);
-                  return GestureDetector(
-                    onTap: () => ctrl.toggleType(type),
-                    child: Row(
-                      children: [
-                        Container(
-                          width: 20,
-                          height: 20,
-                          decoration: BoxDecoration(
-                            shape: BoxShape.circle,
-                            border: Border.all(
-                              color: isSelected
-                                  ? LightColors.primaryColor
-                                  : Colors.grey.shade400,
-                              width: 2,
-                            ),
-                            color: isSelected
-                                ? LightColors.primaryColor
-                                : Colors.transparent,
-                          ),
-                          child: isSelected
-                              ? const Icon(Icons.check,
-                                  size: 12, color: Colors.white)
-                              : null,
-                        ),
-                        const SizedBox(width: 6),
-                        Flexible(
-                          child: Text(
-                            type,
-                            style: TextStyle(
-                              fontSize: 13,
-                              color: isSelected
-                                  ? LightColors.primaryColor
-                                  : LightColors.textColor,
-                              fontWeight: isSelected
-                                  ? FontWeight.w600
-                                  : FontWeight.normal,
-                            ),
-                          ),
-                        ),
-                      ],
+              // ── Clear button ─────────────────────────────────────────
+              Center(
+                child: TextButton(
+                  onPressed: ctrl.clearFilters,
+                  child: const Text(
+                    'Clear All Filters',
+                    style: TextStyle(
+                      color: LightColors.primaryColor,
+                      fontWeight: FontWeight.w600,
+                      fontSize: 13,
                     ),
-                  );
-                }).toList(),
+                  ),
+                ),
               ),
             ],
           ),
@@ -136,29 +146,160 @@ class SearchFilterPanel extends StatelessWidget {
   }
 }
 
-/// Small green price chip
-class _PriceChip extends StatelessWidget {
-  final String label;
-  const _PriceChip(this.label);
+// ── Section title ────────────────────────────────────────────────────────────
+
+class _SectionTitle extends StatelessWidget {
+  final String text;
+  const _SectionTitle(this.text);
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-      decoration: BoxDecoration(
-        color: LightColors.primaryColor.withValues(alpha: 0.1),
-        borderRadius: BorderRadius.circular(6),
-      ),
-      child: Text(
-        label,
-        style: const TextStyle(
-          fontSize: 12,
-          color: LightColors.primaryColor,
-          fontWeight: FontWeight.w600,
-        ),
+    return Text(
+      text,
+      style: const TextStyle(
+        fontSize: 14,
+        fontWeight: FontWeight.w600,
+        color: LightColors.textColor,
       ),
     );
   }
 }
 
+// ── Price input with +/- buttons ─────────────────────────────────────────────
 
+class _PriceInput extends StatelessWidget {
+  final String label;
+  final TextEditingController controller;
+  final VoidCallback onIncrement;
+  final VoidCallback onDecrement;
+
+  const _PriceInput({
+    required this.label,
+    required this.controller,
+    required this.onIncrement,
+    required this.onDecrement,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          label,
+          style: TextStyle(
+            fontSize: 12,
+            fontWeight: FontWeight.w500,
+            color: Colors.grey.shade600,
+          ),
+        ),
+        const SizedBox(height: 6),
+        Container(
+          height: 44,
+          decoration: BoxDecoration(
+            color: const Color(0xFFF5F5F5),
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: Colors.grey.shade300),
+          ),
+          child: Row(
+            children: [
+              _StepButton(icon: Icons.remove, onTap: onDecrement),
+              Expanded(
+                child: TextField(
+                  controller: controller,
+                  textAlign: TextAlign.center,
+                  keyboardType: TextInputType.number,
+                  inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                  style: const TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                    color: LightColors.textColor,
+                  ),
+                  decoration: const InputDecoration(
+                    border: InputBorder.none,
+                    contentPadding: EdgeInsets.zero,
+                    isDense: true,
+                  ),
+                ),
+              ),
+              _StepButton(icon: Icons.add, onTap: onIncrement),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _StepButton extends StatelessWidget {
+  final IconData icon;
+  final VoidCallback onTap;
+
+  const _StepButton({required this.icon, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        width: 36,
+        height: 44,
+        alignment: Alignment.center,
+        child: Icon(icon, size: 18, color: LightColors.primaryColor),
+      ),
+    );
+  }
+}
+
+// ── Selectable chip row ──────────────────────────────────────────────────────
+
+class _ChipRow extends StatelessWidget {
+  final List<String> options;
+  final List<String> values;
+  final String? selected;
+  final ValueChanged<String> onSelected;
+
+  const _ChipRow({
+    required this.options,
+    required this.values,
+    required this.selected,
+    required this.onSelected,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Wrap(
+      spacing: 8,
+      runSpacing: 8,
+      children: List.generate(options.length, (i) {
+        final isActive = selected == values[i];
+        return GestureDetector(
+          onTap: () => onSelected(values[i]),
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 200),
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+            decoration: BoxDecoration(
+              color: isActive
+                  ? LightColors.primaryColor
+                  : const Color(0xFFF5F5F5),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(
+                color: isActive
+                    ? LightColors.primaryColor
+                    : Colors.grey.shade300,
+              ),
+            ),
+            child: Text(
+              options[i],
+              style: TextStyle(
+                fontSize: 13,
+                fontWeight: isActive ? FontWeight.w600 : FontWeight.w500,
+                color: isActive ? Colors.white : LightColors.textColor,
+              ),
+            ),
+          ),
+        );
+      }),
+    );
+  }
+}

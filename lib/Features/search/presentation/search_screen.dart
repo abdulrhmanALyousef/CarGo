@@ -33,43 +33,34 @@ class _SearchBody extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // ── Header ──────────────────────────────────────────────────
+            // ── Header (fixed) ─────────────────────────────────────────
             const SearchHeader(),
 
-            // ── Search Bar ──────────────────────────────────────────────
+            // ── Search Bar (fixed) ─────────────────────────────────────
             const SearchBarWidget(),
 
-            // ── Results count ───────────────────────────────────────────
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 4),
-              child: Text(
-                '${ctrl.resultCount} results',
-                style: TextStyle(fontSize: 14, color: Colors.grey.shade600),
-              ),
+            const SizedBox(height: 4),
+
+            // ── Everything else scrolls ────────────────────────────────
+            Expanded(
+              child: _buildScrollableContent(context, ctrl),
             ),
-
-            const SizedBox(height: 8),
-
-            // ── Filter Panel (toggleable) ───────────────────────────────
-            const SearchFilterPanel(),
-
-            if (ctrl.showFilters) const SizedBox(height: 12),
-
-            // ── Results ─────────────────────────────────────────────────
-            Expanded(child: _buildResults(context, ctrl)),
           ],
         ),
       ),
     );
   }
 
-  Widget _buildResults(BuildContext context, SearchCarController ctrl) {
+  Widget _buildScrollableContent(
+      BuildContext context, SearchCarController ctrl) {
+    // Loading state
     if (ctrl.isLoading) {
       return const Center(
         child: CircularProgressIndicator(color: LightColors.primaryColor),
       );
     }
 
+    // Error state
     if (ctrl.error != null) {
       return Center(
         child: Padding(
@@ -96,39 +87,77 @@ class _SearchBody extends StatelessWidget {
       );
     }
 
-    if (ctrl.filteredCars.isEmpty) {
-      return Center(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(Icons.search_off_rounded, size: 56, color: Colors.grey.shade400),
-            const SizedBox(height: 12),
-            Text(
-              'No cars found',
-              style: TextStyle(fontSize: 16, color: Colors.grey.shade500),
+    return CustomScrollView(
+      slivers: [
+        // ── Result count ───────────────────────────────────────────
+        SliverToBoxAdapter(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 4),
+            child: Text(
+              '${ctrl.resultCount} results',
+              style: TextStyle(fontSize: 14, color: Colors.grey.shade600),
             ),
-            const SizedBox(height: 8),
-            AppButton(
-              text: 'Clear filters',
-              onTap: () => ctrl.clearFilters(),
-              width: 140,
-              height: 40,
-              fontSize: 13,
-            ),
-          ],
+          ),
         ),
-      );
-    }
 
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16),
-      child: ListView.separated(
-        itemCount: ctrl.filteredCars.length,
-        separatorBuilder: (_, __) => const SizedBox(height: 16),
-        itemBuilder: (context, index) {
-          return CarCard(model: ctrl.filteredCars[index]);
-        },
-      ),
+        // ── Filter panel ──────────────────────────────────────────
+        const SliverToBoxAdapter(
+          child: SearchFilterPanel(),
+        ),
+
+        if (ctrl.showFilters)
+          const SliverToBoxAdapter(child: SizedBox(height: 12)),
+
+        // ── Results ───────────────────────────────────────────────
+        if (ctrl.filteredCars.isEmpty)
+          SliverFillRemaining(
+            hasScrollBody: false,
+            child: Center(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(Icons.search_off_rounded,
+                      size: 56, color: Colors.grey.shade400),
+                  const SizedBox(height: 12),
+                  Text(
+                    'No cars found',
+                    style:
+                        TextStyle(fontSize: 16, color: Colors.grey.shade500),
+                  ),
+                  const SizedBox(height: 8),
+                  AppButton(
+                    text: 'Clear filters',
+                    onTap: () => ctrl.clearFilters(),
+                    width: 140,
+                    height: 40,
+                    fontSize: 13,
+                  ),
+                ],
+              ),
+            ),
+          )
+        else
+          SliverPadding(
+            padding: const EdgeInsets.only(
+              left: 16,
+              right: 16,
+              bottom: 24,
+            ),
+            sliver: SliverList(
+              delegate: SliverChildBuilderDelegate(
+                (context, index) {
+                  return Padding(
+                    padding: EdgeInsets.only(
+                      top: index == 0 ? 0 : 16,
+                    ),
+                    child: CarCard(model: ctrl.filteredCars[index]),
+                  );
+                },
+                childCount: ctrl.filteredCars.length,
+              ),
+            ),
+          ),
+      ],
     );
   }
 }

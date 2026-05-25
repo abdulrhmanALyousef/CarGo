@@ -18,17 +18,23 @@ class SearchCarController extends ChangeNotifier {
   RangeValues _priceRange = const RangeValues(50, 300);
   RangeValues get priceRange => _priceRange;
 
-  // ── Car Types ────────────────────────────────────────────────────────
-  final List<String> carTypes = [
-    'Family',
-    'Sport',
-    'Off-Road',
-    'SUV',
-    'Luxury',
-    'Economic',
-  ];
-  final Set<String> _selectedTypes = {};
-  Set<String> get selectedTypes => _selectedTypes;
+  final TextEditingController minPriceController = TextEditingController();
+  final TextEditingController maxPriceController = TextEditingController();
+
+  // ── Seats Filter ────────────────────────────────────────────────────
+  final List<String> seatOptions = ['2', '4', '5', '7+'];
+  String? _selectedSeats;
+  String? get selectedSeats => _selectedSeats;
+
+  // ── Transmission Filter ─────────────────────────────────────────────
+  final List<String> transmissionOptions = ['Automatic', 'Manual'];
+  String? _selectedTransmission;
+  String? get selectedTransmission => _selectedTransmission;
+
+  // ── Fuel Type Filter ────────────────────────────────────────────────
+  final List<String> fuelOptions = ['Gasoline', 'Hybrid', 'Electric'];
+  String? _selectedFuel;
+  String? get selectedFuel => _selectedFuel;
 
   // ── Results ──────────────────────────────────────────────────────────
   List<Car> _allCars = [];
@@ -53,6 +59,9 @@ class SearchCarController extends ChangeNotifier {
 
   // ────────────────────────────────────────────────────────────────────
   SearchCarController() {
+    _syncPriceTextFields();
+    minPriceController.addListener(_onMinPriceTyped);
+    maxPriceController.addListener(_onMaxPriceTyped);
     fetchCars();
     searchTextController.addListener(_onSearchChanged);
   }
@@ -61,7 +70,88 @@ class SearchCarController extends ChangeNotifier {
   void dispose() {
     searchTextController.removeListener(_onSearchChanged);
     searchTextController.dispose();
+    minPriceController.removeListener(_onMinPriceTyped);
+    maxPriceController.removeListener(_onMaxPriceTyped);
+    minPriceController.dispose();
+    maxPriceController.dispose();
     super.dispose();
+  }
+
+  // ── Price text ↔ slider sync ────────────────────────────────────────
+  bool _updatingFromSlider = false;
+
+  void _syncPriceTextFields() {
+    minPriceController.text = _priceRange.start.round().toString();
+    maxPriceController.text = _priceRange.end.round().toString();
+  }
+
+  void _onMinPriceTyped() {
+    if (_updatingFromSlider) return;
+    final val = double.tryParse(minPriceController.text);
+    if (val == null) return;
+    final clamped = val.clamp(minPrice, _priceRange.end);
+    _priceRange = RangeValues(clamped, _priceRange.end);
+    _applyFilters();
+    notifyListeners();
+  }
+
+  void _onMaxPriceTyped() {
+    if (_updatingFromSlider) return;
+    final val = double.tryParse(maxPriceController.text);
+    if (val == null) return;
+    final clamped = val.clamp(_priceRange.start, maxPrice);
+    _priceRange = RangeValues(_priceRange.start, clamped);
+    _applyFilters();
+    notifyListeners();
+  }
+
+  void updatePriceRange(RangeValues values) {
+    _priceRange = values;
+    _updatingFromSlider = true;
+    _syncPriceTextFields();
+    _updatingFromSlider = false;
+    _applyFilters();
+    notifyListeners();
+  }
+
+  void incrementMinPrice() {
+    final newVal = (_priceRange.start + 10).clamp(minPrice, _priceRange.end);
+    updatePriceRange(RangeValues(newVal, _priceRange.end));
+  }
+
+  void decrementMinPrice() {
+    final newVal = (_priceRange.start - 10).clamp(minPrice, _priceRange.end);
+    updatePriceRange(RangeValues(newVal, _priceRange.end));
+  }
+
+  void incrementMaxPrice() {
+    final newVal = (_priceRange.end + 10).clamp(_priceRange.start, maxPrice);
+    updatePriceRange(RangeValues(_priceRange.start, newVal));
+  }
+
+  void decrementMaxPrice() {
+    final newVal = (_priceRange.end - 10).clamp(_priceRange.start, maxPrice);
+    updatePriceRange(RangeValues(_priceRange.start, newVal));
+  }
+
+  // ── Filter selections ───────────────────────────────────────────────
+  void selectSeats(String? seats) {
+    _selectedSeats = (_selectedSeats == seats) ? null : seats;
+    _applyFilters();
+    notifyListeners();
+  }
+
+  void selectTransmission(String? transmission) {
+    _selectedTransmission =
+        (_selectedTransmission == transmission) ? null : transmission;
+    _applyFilters();
+    notifyListeners();
+  }
+
+  void selectFuel(String? fuel) {
+    _selectedFuel = (_selectedFuel == fuel) ? null : fuel;
+    _applyFilters();
+    notifyListeners();
   }
 
   // ── Firestore fetch ──────────────────────────────────────────────────
@@ -97,22 +187,6 @@ class SearchCarController extends ChangeNotifier {
     notifyListeners();
   }
 
-  void updatePriceRange(RangeValues values) {
-    _priceRange = values;
-    _applyFilters();
-    notifyListeners();
-  }
-
-  void toggleType(String type) {
-    if (_selectedTypes.contains(type)) {
-      _selectedTypes.remove(type);
-    } else {
-      _selectedTypes.add(type);
-    }
-    _applyFilters();
-    notifyListeners();
-  }
-
   // ── Filtering logic (local, after Firestore fetch) ───────────────────
   void _applyFilters() {
     _filteredCars = _allCars.where((car) {
@@ -130,18 +204,40 @@ class SearchCarController extends ChangeNotifier {
         if (!haystack.contains(q)) return false;
       }
 
-      // Car type filter (transmission field used as "type" proxy)
-      // If nothing selected → show all
-      if (_selectedTypes.isNotEmpty) {
-        // Match against brand (Family/Sport/SUV etc.) stored in overview or
-        // any field. Adjust as needed for your Firestore schema.
-        final matchesType = _selectedTypes.any((type) {
-          final t = type.toLowerCase();
-          return car.brand.toLowerCase().contains(t) ||
-              car.overview.toLowerCase().contains(t) ||
-              car.transmission.toLowerCase().contains(t);
-        });
-        if (!matchesType) return false;
+      // Seats filter
+      if (_selectedSeats != null) {
+        if (_selectedSeats == '7+') {
+          if (car.seats < 7) return false;
+        } else {
+          final seatCount = int.tryParse(_selectedSeats!) ?? 0;
+          if (car.seats != seatCount) return false;
+        }
+      }
+
+      // Transmission filter
+      if (_selectedTransmission != null) {
+        if (car.transmission.toLowerCase() !=
+            _selectedTransmission!.toLowerCase()) {
+          return false;
+        }
+      }
+
+      // Fuel type filter
+      if (_selectedFuel != null) {
+        final fuel = _selectedFuel!.toLowerCase();
+        if (fuel == 'electric') {
+          if (!car.isElectric) return false;
+        } else if (fuel == 'hybrid') {
+          final carDesc =
+              '${car.overview} ${car.brand} ${car.model}'.toLowerCase();
+          if (!carDesc.contains('hybrid')) return false;
+        } else {
+          // Gasoline = not electric and not hybrid
+          if (car.isElectric) return false;
+          final carDesc =
+              '${car.overview} ${car.brand} ${car.model}'.toLowerCase();
+          if (carDesc.contains('hybrid')) return false;
+        }
       }
 
       return true;
@@ -150,11 +246,13 @@ class SearchCarController extends ChangeNotifier {
 
   void clearFilters() {
     _priceRange = const RangeValues(50, 300);
-    _selectedTypes.clear();
+    _syncPriceTextFields();
+    _selectedSeats = null;
+    _selectedTransmission = null;
+    _selectedFuel = null;
     searchTextController.clear();
     _searchQuery = '';
     _applyFilters();
     notifyListeners();
   }
 }
-
