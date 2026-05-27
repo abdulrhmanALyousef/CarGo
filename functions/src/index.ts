@@ -13,9 +13,10 @@ setGlobalOptions({ region: 'us-central1' });
 admin.initializeApp();
 
 const db = admin.firestore();
-const resendKey   = defineSecret('RESEND_API_KEY');
-const stripeKey   = defineSecret('STRIPE_SECRET_KEY');
-const mapsKey     = defineSecret('GOOGLE_MAPS_API_KEY');
+const resendKey      = defineSecret('RESEND_API_KEY');
+const stripeKey      = defineSecret('STRIPE_SECRET_KEY');
+const mapsKey        = defineSecret('GOOGLE_MAPS_API_KEY');
+const authenticaKey  = defineSecret('AUTHENTICA_API_KEY');
 
 // ── Logo URL ──────────────────────────────────────────────────────────────────
 //
@@ -41,6 +42,42 @@ function sha256(value: string): string {
 function generateOtp(): string {
   const num = crypto.randomBytes(4).readUInt32BE(0) % 1_000_000;
   return num.toString().padStart(6, '0');
+}
+
+/** Cryptographically random 4-digit code for SMS OTP. */
+function generateOtp4(): string {
+  const num = crypto.randomBytes(3).readUInt16BE(0) % 10_000;
+  return num.toString().padStart(4, '0');
+}
+
+/**
+ * Delivers an SMS OTP via the Authentica API.
+ * Base URL: https://api.authentica.sa/api/v2
+ * Auth:     X-Authorization header
+ * NOTE: Set template_id to match your Authentica dashboard template.
+ */
+async function sendSmsViaAuthentica(phone: string, otp: string, apiKey: string): Promise<void> {
+  const response = await fetch('https://api.authentica.sa/api/v2/send-otp', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Accept': 'application/json',
+      'X-Authorization': apiKey,
+    },
+    body: JSON.stringify({ method: 'sms', phone, template_id: 1, otp }),
+  });
+
+  if (!response.ok) {
+    const errText = await response.text();
+    console.error('[Authentica] send-otp failed:', response.status, errText);
+    throw new HttpsError('internal', 'Failed to send SMS. Please try again.');
+  }
+
+  const json = await response.json() as { success?: boolean };
+  if (json.success === false) {
+    console.error('[Authentica] send-otp returned non-success:', json);
+    throw new HttpsError('internal', 'Failed to send SMS. Please try again.');
+  }
 }
 
 /** Use hashed email as doc ID — avoids special-character issues in Firestore. */
@@ -527,6 +564,9 @@ export const verifySignupOtp = onCall(async (request) => {
       phone,
       nationalId,
       licenseUrl: '',
+      emailVerified: true,
+      phoneVerified: false,
+      twoFactorEnabled: false,
       createdAt: admin.firestore.FieldValue.serverTimestamp(),
     });
     console.log('[verifySignupOtp] Firestore user document created for:', userRecord.uid);
@@ -907,3 +947,200 @@ export const getPlaceDetails = onCall(
     };
   }
 );
+
+// ── sendSmsOtp ────────────────────────────────────────────────────────────────
+//
+// Generates a 4-digit OTP, stores a hashed copy in `phoneOtps`, and delivers
+// the code via Authentica SMS API.  Used during signup phone verification.
+
+export const sendSmsOtp = onCall(
+  { secrets: [authenticaKey] },
+  async (request) => {
+    const phone: string = (request.data.phone ?? '').trim();
+
+    if (!phone || !/^\+966[0-9]{9}$/.test(phone)) {
+      throw new HttpsError('invalid-argument', 'A valid Saudi phone number is required (+966XXXXXXXXX).');
+    }
+
+    const ref = db.collection('phoneOtps').doc(sha256(phone));
+    const existing = await ref.get();
+
+    if (existing.exists) {
+      const d = existing.data()!;
+      const ageSeconds = (Date.now() - (d.createdAt as admin.firestore.Timestamp).toMillis()) / 1000;
+      if (ageSeconds < 300 && (d.requestCount ?? 1) >= 3) {
+        throw new HttpsError('resource-exhausted', 'Too many OTP requests. Please wait a few minutes.');
+      }
+    }
+
+    const code = generateOtp4();
+    const requestCount = existing.exists ? (existing.data()?.requestCount ?? 0) + 1 : 1;
+
+    await ref.set({
+      phone,
+      hashedCode: sha256(code),
+      expiresAt: admin.firestore.Timestamp.fromMillis(Date.now() + 5 * 60 * 1000),
+      used: false,
+      attempts: 0,
+      createdAt: admin.firestore.FieldValue.serverTimestamp(),
+      requestCount,
+    });
+
+    await sendSmsViaAuthentica(phone, code, authenticaKey.value());
+    return { success: true };
+  }
+);
+
+// ── verifySmsOtp ──────────────────────────────────────────────────────────────
+//
+// Verifies the 4-digit SMS OTP stored in `phoneOtps`.
+// If `uid` is provided, marks the user's phone as verified and enables 2FA.
+
+export const verifySmsOtp = onCall(async (request) => {
+  const phone: string = (request.data.phone ?? '').trim();
+  const code: string  = (request.data.code  ?? '').trim();
+  const uid: string   = (request.data.uid   ?? '').trim();
+
+  if (!phone || !code) {
+    throw new HttpsError('invalid-argument', 'Phone and code are required.');
+  }
+
+  const ref  = db.collection('phoneOtps').doc(sha256(phone));
+  const snap = await ref.get();
+
+  if (!snap.exists) {
+    throw new HttpsError('not-found', 'No OTP found. Please request a new code.');
+  }
+
+  const d = snap.data()!;
+
+  if (d.used) {
+    throw new HttpsError('failed-precondition', 'This code has already been used.');
+  }
+
+  if (Date.now() > (d.expiresAt as admin.firestore.Timestamp).toMillis()) {
+    throw new HttpsError('deadline-exceeded', 'This code has expired. Request a new one.');
+  }
+
+  const attempts: number = d.attempts ?? 0;
+  if (attempts >= 5) {
+    throw new HttpsError('resource-exhausted', 'Too many failed attempts. Request a new code.');
+  }
+
+  if (sha256(code) !== d.hashedCode) {
+    await ref.update({ attempts: admin.firestore.FieldValue.increment(1) });
+    throw new HttpsError('unauthenticated', 'Incorrect code. Please try again.');
+  }
+
+  await ref.update({ used: true });
+
+  if (uid) {
+    await db.collection('users').doc(uid).update({
+      phoneVerified: true,
+      twoFactorEnabled: true,
+    });
+  }
+
+  return { success: true };
+});
+
+// ── sendLoginOtp ──────────────────────────────────────────────────────────────
+//
+// Looks up the user's phone number, sends a 4-digit SMS OTP keyed by uid
+// (so the client never needs to know the full phone).
+// Returns { twoFactorRequired, maskedPhone }.
+
+export const sendLoginOtp = onCall(
+  { secrets: [authenticaKey] },
+  async (request) => {
+    const uid: string = (request.data.uid ?? '').trim();
+
+    if (!uid) {
+      throw new HttpsError('invalid-argument', 'User ID is required.');
+    }
+
+    const userDoc = await db.collection('users').doc(uid).get();
+    if (!userDoc.exists) {
+      throw new HttpsError('not-found', 'User not found.');
+    }
+
+    const phone: string = (userDoc.data()?.phone ?? '').trim();
+    const twoFactorEnabled: boolean = userDoc.data()?.twoFactorEnabled ?? false;
+
+    if (!twoFactorEnabled || !phone) {
+      return { success: true, twoFactorRequired: false, maskedPhone: '' };
+    }
+
+    const ref = db.collection('phoneOtps').doc(sha256(uid));
+    const existing = await ref.get();
+
+    if (existing.exists) {
+      const d = existing.data()!;
+      const ageSeconds = (Date.now() - (d.createdAt as admin.firestore.Timestamp).toMillis()) / 1000;
+      if (ageSeconds < 300 && (d.requestCount ?? 1) >= 3) {
+        throw new HttpsError('resource-exhausted', 'Too many OTP requests. Please wait a few minutes.');
+      }
+    }
+
+    const code = generateOtp4();
+    const requestCount = existing.exists ? (existing.data()?.requestCount ?? 0) + 1 : 1;
+
+    await ref.set({
+      phone,
+      hashedCode: sha256(code),
+      expiresAt: admin.firestore.Timestamp.fromMillis(Date.now() + 5 * 60 * 1000),
+      used: false,
+      attempts: 0,
+      createdAt: admin.firestore.FieldValue.serverTimestamp(),
+      requestCount,
+    });
+
+    await sendSmsViaAuthentica(phone, code, authenticaKey.value());
+
+    const masked = `${phone.slice(0, 5)}${'*'.repeat(phone.length - 8)}${phone.slice(-3)}`;
+    return { success: true, twoFactorRequired: true, maskedPhone: masked };
+  }
+);
+
+// ── verifyLoginOtp ────────────────────────────────────────────────────────────
+//
+// Verifies the 2FA login OTP for a uid.  Does not modify the user document.
+
+export const verifyLoginOtp = onCall(async (request) => {
+  const uid: string  = (request.data.uid  ?? '').trim();
+  const code: string = (request.data.code ?? '').trim();
+
+  if (!uid || !code) {
+    throw new HttpsError('invalid-argument', 'User ID and code are required.');
+  }
+
+  const ref  = db.collection('phoneOtps').doc(sha256(uid));
+  const snap = await ref.get();
+
+  if (!snap.exists) {
+    throw new HttpsError('not-found', 'No OTP found. Please request a new code.');
+  }
+
+  const d = snap.data()!;
+
+  if (d.used) {
+    throw new HttpsError('failed-precondition', 'This code has already been used.');
+  }
+
+  if (Date.now() > (d.expiresAt as admin.firestore.Timestamp).toMillis()) {
+    throw new HttpsError('deadline-exceeded', 'This code has expired. Request a new one.');
+  }
+
+  const attempts: number = d.attempts ?? 0;
+  if (attempts >= 5) {
+    throw new HttpsError('resource-exhausted', 'Too many failed attempts. Request a new code.');
+  }
+
+  if (sha256(code) !== d.hashedCode) {
+    await ref.update({ attempts: admin.firestore.FieldValue.increment(1) });
+    throw new HttpsError('unauthenticated', 'Incorrect code. Please try again.');
+  }
+
+  await ref.update({ used: true });
+  return { success: true };
+});

@@ -25,25 +25,6 @@ class OnboardingController extends ChangeNotifier {
   final passwordController = TextEditingController();
   final confirmPasswordController = TextEditingController();
 
-  static const _phonePrefix = '+966';
-
-  OnboardingController() {
-    phoneController.text = _phonePrefix;
-    phoneController.addListener(_guardPhonePrefix);
-  }
-
-  void _guardPhonePrefix() {
-    if (!phoneController.text.startsWith(_phonePrefix)) {
-      final digits =
-          phoneController.text.replaceAll(RegExp(r'[^0-9]'), '');
-      final restored = _phonePrefix + digits;
-      phoneController.value = TextEditingValue(
-        text: restored,
-        selection: TextSelection.collapsed(offset: restored.length),
-      );
-    }
-  }
-
   // ── Step 2 controllers ────────────────────────────────────────────────────
 
   final nationalIdController = TextEditingController();
@@ -100,11 +81,8 @@ class OnboardingController extends ChangeNotifier {
 
   String? validatePhone(String? v) {
     final val = v?.trim() ?? '';
-    if (val == _phonePrefix || val.length <= _phonePrefix.length) {
-      return 'Please enter your phone number';
-    }
-    final digits = val.substring(_phonePrefix.length);
-    if (!RegExp(r'^5[0-9]{8}$').hasMatch(digits)) {
+    if (val.isEmpty) return 'Please enter your phone number';
+    if (!RegExp(r'^5[0-9]{8}$').hasMatch(val)) {
       return 'Enter a valid Saudi number (9 digits starting with 5)';
     }
     return null;
@@ -158,8 +136,9 @@ class OnboardingController extends ChangeNotifier {
     notifyListeners();
 
     try {
+      final fullPhone = '+966${phoneController.text.trim()}';
       final phoneExists =
-          await FirebaseService().isPhoneExists(phoneController.text.trim());
+          await FirebaseService().isPhoneExists(fullPhone);
       if (phoneExists) {
         if (context.mounted) _showError(context, 'This phone number is already registered');
         return;
@@ -197,7 +176,6 @@ class OnboardingController extends ChangeNotifier {
 
   @override
   void dispose() {
-    phoneController.removeListener(_guardPhonePrefix);
     fullNameController.dispose();
     emailController.dispose();
     phoneController.dispose();

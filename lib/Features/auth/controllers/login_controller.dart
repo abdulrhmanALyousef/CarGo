@@ -4,6 +4,7 @@ import 'package:cargo/core/dataSource/remote_data/firebase_service.dart';
 import 'package:cargo/core/dataSource/local_data/preferences_manager.dart';
 import 'package:cargo/Features/Main/main_screen.dart';
 import 'package:cargo/Features/auth/otp_screen.dart';
+import 'package:cargo/Features/auth/two_factor_screen.dart';
 // ignore_for_file: unused_import
 
 enum LoginMethod { email, phone }
@@ -13,24 +14,6 @@ class LoginController extends ChangeNotifier {
   final TextEditingController passwordController = TextEditingController();
   final TextEditingController phoneController = TextEditingController();
   final TextEditingController otpController = TextEditingController();
-
-  static const _phonePrefix = '+966';
-
-  LoginController() {
-    phoneController.text = _phonePrefix;
-    phoneController.addListener(_guardPhonePrefix);
-  }
-
-  void _guardPhonePrefix() {
-    if (!phoneController.text.startsWith(_phonePrefix)) {
-      final digits = phoneController.text.replaceAll(RegExp(r'[^0-9]'), '');
-      final restored = _phonePrefix + digits;
-      phoneController.value = TextEditingValue(
-        text: restored,
-        selection: TextSelection.collapsed(offset: restored.length),
-      );
-    }
-  }
 
   LoginMethod _method = LoginMethod.email;
   LoginMethod get method => _method;
@@ -60,7 +43,6 @@ class LoginController extends ChangeNotifier {
 
   @override
   void dispose() {
-    phoneController.removeListener(_guardPhonePrefix);
     emailController.dispose();
     passwordController.dispose();
     phoneController.dispose();
@@ -90,11 +72,8 @@ class LoginController extends ChangeNotifier {
 
   String? validatePhone(String? value) {
     final v = value?.trim() ?? '';
-    if (v == _phonePrefix || v.length <= _phonePrefix.length) {
-      return 'Please enter your phone number';
-    }
-    final digits = v.substring(_phonePrefix.length);
-    if (!RegExp(r'^5[0-9]{8}$').hasMatch(digits)) {
+    if (v.isEmpty) return 'Please enter your phone number';
+    if (!RegExp(r'^5[0-9]{8}$').hasMatch(v)) {
       return 'Enter a valid Saudi number (9 digits starting with 5)';
     }
     return null;
@@ -138,12 +117,31 @@ class LoginController extends ChangeNotifier {
         return;
       }
 
-      await PreferencesManager().setBool('isLoggedIn', true);
-      if (context.mounted) {
-        Navigator.pushReplacement(
-          context,
-          MaterialPageRoute(builder: (_) => const MainScreen()),
-        );
+      // Send login OTP for 2FA; if user has no phone/2FA set up, proceeds directly.
+      final result = await FirebaseService().sendLoginOtp(user.uid);
+      final twoFactorRequired = result['twoFactorRequired'] as bool? ?? false;
+
+      if (twoFactorRequired) {
+        final maskedPhone = result['maskedPhone'] as String? ?? '';
+        if (context.mounted) {
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (_) => TwoFactorScreen(
+                uid: user.uid,
+                maskedPhone: maskedPhone,
+              ),
+            ),
+          );
+        }
+      } else {
+        await PreferencesManager().setBool('isLoggedIn', true);
+        if (context.mounted) {
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(builder: (_) => const MainScreen()),
+          );
+        }
       }
     } catch (e) {
       if (context.mounted) _showError(context, 'Login failed: ${e.toString()}');
@@ -157,7 +155,7 @@ class LoginController extends ChangeNotifier {
     _isLoading = true;
     notifyListeners();
 
-    final phone = phoneController.text.trim();
+    final phone = '+966${phoneController.text.trim()}';
     try {
       await FirebaseService().sendPhoneVerification(
         phoneNumber: phone,

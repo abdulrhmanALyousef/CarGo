@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:cargo/core/widgets/custom_text_form_field.dart';
 import 'package:cargo/Features/auth/controllers/login_controller.dart';
@@ -310,11 +311,15 @@ class _PhoneLoginField extends StatelessWidget {
         const SizedBox(height: 8),
         TextFormField(
           controller: ctrl.phoneController,
-          keyboardType: TextInputType.phone,
+          keyboardType: TextInputType.number,
           validator: ctrl.validatePhone,
+          inputFormatters: [
+            FilteringTextInputFormatter.digitsOnly,
+            LengthLimitingTextInputFormatter(9),
+          ],
           style: const TextStyle(fontSize: 14, color: Color(0xFF222222)),
           decoration: InputDecoration(
-            hintText: '+966 5X XXX XXXX',
+            hintText: '5X XXX XXXX',
             hintStyle: const TextStyle(color: Color(0xFFAAAAAA), fontSize: 14),
             filled: true,
             fillColor: const Color(0xFFF2F2F2),

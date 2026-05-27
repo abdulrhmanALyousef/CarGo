@@ -217,6 +217,45 @@ class FirebaseService {
     });
   }
 
+  // ── SMS OTP (Cloud Functions — Authentica) ───────────────────────────────
+
+  /// Sends a 4-digit OTP via SMS to [phone] (+966XXXXXXXXX format).
+  Future<void> sendSmsOtp(String phone) async {
+    final callable = _functions.httpsCallable('sendSmsOtp');
+    await callable.call<dynamic>({'phone': phone});
+  }
+
+  /// Verifies SMS OTP. If [uid] is provided, marks the user's phone as verified.
+  Future<void> verifySmsOtp({
+    required String phone,
+    required String code,
+    String? uid,
+  }) async {
+    final callable = _functions.httpsCallable('verifySmsOtp');
+    await callable.call<dynamic>({
+      'phone': phone,
+      'code': code,
+      if (uid != null) 'uid': uid,
+    });
+  }
+
+  /// Sends a 2FA login OTP to the user's registered phone.
+  /// Returns `{ twoFactorRequired: bool, maskedPhone: String }`.
+  Future<Map<String, dynamic>> sendLoginOtp(String uid) async {
+    final callable = _functions.httpsCallable('sendLoginOtp');
+    final result = await callable.call<dynamic>({'uid': uid});
+    return Map<String, dynamic>.from(result.data as Map);
+  }
+
+  /// Verifies the 2FA login OTP for [uid].
+  Future<void> verifyLoginOtp({
+    required String uid,
+    required String code,
+  }) async {
+    final callable = _functions.httpsCallable('verifyLoginOtp');
+    await callable.call<dynamic>({'uid': uid, 'code': code});
+  }
+
   // ── Password-reset OTP (Cloud Functions) ─────────────────────────────────
 
   Future<void> sendOtp(String email) async {

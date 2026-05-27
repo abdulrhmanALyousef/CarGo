@@ -121,7 +121,7 @@ class _SignupStep2ScreenState extends State<SignupStep2Screen> {
               email: ctrl.emailController.text.trim(),
               password: ctrl.passwordController.text.trim(),
               fullName: ctrl.fullNameController.text.trim(),
-              phone: ctrl.phoneController.text.trim(),
+              phone: '+966${ctrl.phoneController.text.trim()}',
               nationalId: ctrl.nationalIdController.text.trim(),
               licenseFile: ctrl.licenseFile,
               role: ctrl.role,
