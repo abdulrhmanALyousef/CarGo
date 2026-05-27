@@ -67,7 +67,7 @@ class ForgotPasswordOtpController extends ChangeNotifier {
   Future<void> resendOtp(BuildContext context) async {
     if (!canResend) return;
 
-    for (var c in boxControllers) c.clear();
+    for (var c in boxControllers) { c.clear(); }
     focusNodes[0].requestFocus();
     notifyListeners();
 
@@ -86,7 +86,7 @@ class ForgotPasswordOtpController extends ChangeNotifier {
         );
       }
     } catch (e) {
-      _showError(context, _extractError(e));
+      if (context.mounted) _showError(context, _extractError(e));
     } finally {
       _isLoading = false;
       notifyListeners();
@@ -111,7 +111,7 @@ class ForgotPasswordOtpController extends ChangeNotifier {
         );
       }
     } catch (e) {
-      _showError(context, _extractError(e));
+      if (context.mounted) _showError(context, _extractError(e));
     } finally {
       _isLoading = false;
       notifyListeners();
@@ -134,8 +134,8 @@ class ForgotPasswordOtpController extends ChangeNotifier {
   @override
   void dispose() {
     _timer?.cancel();
-    for (var c in boxControllers) c.dispose();
-    for (var f in focusNodes) f.dispose();
+    for (var c in boxControllers) { c.dispose(); }
+    for (var f in focusNodes) { f.dispose(); }
     super.dispose();
   }
 }

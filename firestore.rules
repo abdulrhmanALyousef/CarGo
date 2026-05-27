@@ -3,22 +3,85 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
+    // ── Users ──────────────────────────────────────────────────────────────
     match /users/{userId} {
-      // Allow anyone to check if phone or nationalId already exists (for signup duplicate check)
+      // Allow anyone to check if phone or nationalId already exists (signup duplicate check)
       allow read: if true;
-
-      // Only the authenticated owner can write their own document
-      allow write: if request.auth != null && request.auth.uid == userId;
+      // Users can write their own document; portal admin/employee can write any
+      allow write: if request.auth != null && (
+        request.auth.uid == userId ||
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['admin', 'employee']
+      );
     }
 
+    // ── Cars ────────────────────────────────────────────────────────────────
     match /cars/{carId} {
       allow read: if true;
+      // Owners can create/update their own cars; admin/employee can update any car (hub status)
       allow write: if request.auth != null;
     }
 
+    // ── Bookings ────────────────────────────────────────────────────────────
+    match /bookings/{bookingId} {
+      allow read: if request.auth != null;
+      allow write: if request.auth != null;
+    }
+
+    // ── Reviews ─────────────────────────────────────────────────────────────
     match /Reviews/{reviewId} {
       allow read: if true;
       allow write: if request.auth != null;
+    }
+
+    // ── Inspections ──────────────────────────────────────────────────────────
+    match /inspections/{inspectionId} {
+      allow read: if request.auth != null;
+      allow write: if request.auth != null;
+    }
+
+    // ── Damage Reports ───────────────────────────────────────────────────────
+    match /damage_reports/{reportId} {
+      allow read: if request.auth != null;
+      allow write: if request.auth != null;
+    }
+
+    // ── Wallets ──────────────────────────────────────────────────────────────
+    match /wallets/{walletId} {
+      allow read: if request.auth != null;
+      allow write: if request.auth != null;
+    }
+
+    // ── Transactions ─────────────────────────────────────────────────────────
+    match /transactions/{txId} {
+      allow read: if request.auth != null;
+      allow write: if request.auth != null;
+    }
+
+    // ── Payouts ──────────────────────────────────────────────────────────────
+    match /payouts/{payoutId} {
+      allow read: if request.auth != null;
+      allow write: if request.auth != null;
+    }
+
+    // ── Notifications ─────────────────────────────────────────────────────────
+    match /notifications/{notifId} {
+      allow read: if request.auth != null;
+      allow write: if request.auth != null;
+    }
+
+    // ── Admin Logs ───────────────────────────────────────────────────────────
+    match /admin_logs/{logId} {
+      allow read: if request.auth != null;
+      allow write: if request.auth != null;
+    }
+
+    // ── OTP Collections (mobile app) ─────────────────────────────────────────
+    match /signupOtps/{docId} {
+      allow read, write: if request.auth != null;
+    }
+
+    match /otpVerifications/{docId} {
+      allow read, write: if request.auth != null;
     }
 
   }

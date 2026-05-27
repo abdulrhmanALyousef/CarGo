@@ -21,7 +21,7 @@ class CustomCachedNetworkImage extends StatelessWidget {
         highlightColor: Colors.grey.shade100,
         child: Container(height: height ?? 80, width: width ?? 140, color: Colors.white),
       ),
-      errorWidget: (context, url, error) => Icon(Icons.error),
+      errorWidget: (context, url, error) => const Icon(Icons.error),
       fit: BoxFit.cover,
     );
   }

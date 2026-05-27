@@ -1,7 +1,6 @@
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:shimmer/shimmer.dart';
-import 'package:cargo/core/theme/light_color.dart';
 
 class ItemCard extends StatelessWidget {
   const ItemCard({
@@ -80,8 +79,8 @@ class ItemCard extends StatelessWidget {
                       begin: Alignment.bottomCenter,
                       end: Alignment.topCenter,
                       colors: [
-                        Colors.black.withOpacity(0.7),
-                        Colors.black.withOpacity(0.3),
+                        Colors.black.withValues(alpha: 0.7),
+                        Colors.black.withValues(alpha: 0.3),
                         Colors.transparent,
                       ],
                       stops: const [0.0, 0.5, 1.0],
@@ -113,7 +112,7 @@ class ItemCard extends StatelessWidget {
                           child: const Icon(
                             Icons.arrow_forward,
                             size: 16,
-                            color: LightColors.textColor,
+                            color: Colors.white,
                           ),
                         ),
                       ),

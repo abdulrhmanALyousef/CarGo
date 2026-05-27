@@ -55,13 +55,13 @@ class EmailOtpScreen extends StatelessWidget {
                     shape: BoxShape.circle,
                   ),
                   child: IconButton(
-                    icon: Icon(Icons.arrow_back,
+                    icon: const Icon(Icons.arrow_back,
                         color: LightColors.textColor),
                     onPressed: () => Navigator.pop(context),
                   ),
                 ),
               ),
-              title: Text(
+              title: const Text(
                 'Verify Code',
                 style: TextStyle(
                   color: LightColors.textColor,
@@ -87,7 +87,7 @@ class EmailOtpScreen extends StatelessWidget {
                         color: LightColors.primaryColor.withValues(alpha: 0.1),
                         shape: BoxShape.circle,
                       ),
-                      child: Icon(
+                      child: const Icon(
                         Icons.mark_email_read_outlined,
                         size: 36,
                         color: LightColors.primaryColor,
@@ -96,7 +96,7 @@ class EmailOtpScreen extends StatelessWidget {
                     const SizedBox(height: 24),
 
                     // Title
-                    Text(
+                    const Text(
                       'Verify Your Email',
                       style: TextStyle(
                         fontSize: 26,
@@ -118,7 +118,7 @@ class EmailOtpScreen extends StatelessWidget {
                     const SizedBox(height: 4),
                     Text(
                       email,
-                      style: TextStyle(
+                      style: const TextStyle(
                         fontSize: 15,
                         fontWeight: FontWeight.w600,
                         color: LightColors.primaryColor,
@@ -172,7 +172,7 @@ class EmailOtpScreen extends StatelessWidget {
                                 FilteringTextInputFormatter.digitsOnly,
                                 LengthLimitingTextInputFormatter(1),
                               ],
-                              style: TextStyle(
+                              style: const TextStyle(
                                 fontSize: 22,
                                 fontWeight: FontWeight.bold,
                                 color: LightColors.textColor,
@@ -198,7 +198,7 @@ class EmailOtpScreen extends StatelessWidget {
                     ctrl.canResend
                         ? GestureDetector(
                             onTap: () => ctrl.resendOtp(context),
-                            child: Text(
+                            child: const Text(
                               'Resend Code',
                               style: TextStyle(
                                 fontSize: 14,
@@ -218,7 +218,7 @@ class EmailOtpScreen extends StatelessWidget {
                               children: [
                                 TextSpan(
                                   text: ctrl.timerText,
-                                  style: TextStyle(
+                                  style: const TextStyle(
                                     fontWeight: FontWeight.bold,
                                     color: LightColors.primaryColor,
                                   ),

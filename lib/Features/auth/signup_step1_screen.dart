@@ -3,7 +3,7 @@ import 'package:cargo/Features/auth/signup_step2_screen.dart';
 import 'package:cargo/Features/auth/signup_widgets.dart';
 import 'package:cargo/core/theme/light_color.dart';
 import 'package:cargo/core/widgets/app_button.dart';
-import 'package:cargo/core/widgets/custom_text_formField.dart';
+import 'package:cargo/core/widgets/custom_text_form_field.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
@@ -37,11 +37,11 @@ class _SignupStep1ScreenState extends State<SignupStep1Screen> {
 
     return Scaffold(
       backgroundColor: Colors.white,
-      appBar: StepAppBar(step: 1, total: 2),
+      appBar: const StepAppBar(step: 1, total: 2),
       body: SafeArea(
         child: Column(
           children: [
-            StepProgressBar(step: 1, total: 2),
+            const StepProgressBar(step: 1, total: 2),
             Expanded(
               child: SingleChildScrollView(
                 padding: const EdgeInsets.symmetric(

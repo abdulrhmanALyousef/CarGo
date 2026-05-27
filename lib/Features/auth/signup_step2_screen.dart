@@ -4,7 +4,7 @@ import 'package:cargo/Features/auth/email_otp_screen.dart';
 import 'package:cargo/Features/auth/signup_widgets.dart';
 import 'package:cargo/core/theme/light_color.dart';
 import 'package:cargo/core/widgets/app_button.dart';
-import 'package:cargo/core/widgets/custom_text_formField.dart';
+import 'package:cargo/core/widgets/custom_text_form_field.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
@@ -24,11 +24,11 @@ class _SignupStep2ScreenState extends State<SignupStep2Screen> {
 
     return Scaffold(
       backgroundColor: Colors.white,
-      appBar: StepAppBar(step: 2, total: 2),
+      appBar: const StepAppBar(step: 2, total: 2),
       body: SafeArea(
         child: Column(
           children: [
-            StepProgressBar(step: 2, total: 2),
+            const StepProgressBar(step: 2, total: 2),
             Expanded(
               child: SingleChildScrollView(
                 padding: const EdgeInsets.symmetric(
@@ -146,9 +146,9 @@ class _LicenseUploadSection extends StatelessWidget {
       children: [
         Row(
           children: [
-            Text(
+            const Text(
               'Driving License',
-              style: const TextStyle(
+              style: TextStyle(
                 fontSize: 14,
                 fontWeight: FontWeight.w500,
                 color: Color(0xFF222222),

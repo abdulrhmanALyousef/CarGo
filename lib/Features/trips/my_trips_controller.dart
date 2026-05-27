@@ -109,8 +109,7 @@ class MyTripsController extends ChangeNotifier {
           final idx =
               _trips.indexWhere((e) => e.booking.bookingId == bookingId);
           if (idx != -1) {
-            final updatedBooking =
-                Booking.fromMap({..._trips[idx].booking.toMap(), 'status': 'approved'});
+            final updatedBooking = _trips[idx].booking.copyWith(status: 'approved');
             final updated =
                 TripEntry(booking: updatedBooking, car: _trips[idx].car);
             _trips[idx] = updated;
@@ -121,12 +120,14 @@ class MyTripsController extends ChangeNotifier {
           _trips.removeWhere((e) => e.booking.bookingId == bookingId);
           changed = true;
         } else if (newStatus != prevStatus) {
-          // Generic status update — reflect in the list.
+          // Rebuild the booking from the full Firestore doc so new fields
+          // (pickupStatus, paymentStatus) are reflected without a re-fetch.
           final idx =
               _trips.indexWhere((e) => e.booking.bookingId == bookingId);
           if (idx != -1) {
-            final updatedBooking =
-                Booking.fromMap({..._trips[idx].booking.toMap(), 'status': newStatus});
+            final docData = Map<String, dynamic>.from(data);
+            docData['bookingId'] = bookingId;
+            final updatedBooking = Booking.fromMap(docData);
             _trips[idx] =
                 TripEntry(booking: updatedBooking, car: _trips[idx].car);
             changed = true;
@@ -217,16 +218,63 @@ class MyTripsController extends ChangeNotifier {
   // ── Cancel Booking ────────────────────────────────────────────────────────
   // Sets the booking status to 'cancelled' in Firestore and removes it from
   // the local list immediately so the UI reflects the change without a reload.
+  // If the cancelled booking was the last confirmed booking for the car,
+  // the car is reset to ready_for_rental so it reappears in Explore.
   Future<void> cancelBooking(
       String bookingId, BuildContext context) async {
     _actionBookingId = bookingId;
     notifyListeners();
 
     try {
+      // Find the entry before removing so we have the carId
+      final entry = _trips.firstWhere(
+        (e) => e.booking.bookingId == bookingId,
+        orElse: () => TripEntry(booking: _trips.first.booking),
+      );
+      final carId = entry.booking.carId;
+
       await _firestore
           .collection('bookings')
           .doc(bookingId)
           .update({'status': 'cancelled'});
+
+      // If no other confirmed/in_trip booking exists for the car, revert its
+      // status — but only to ready_for_rental when free dates remain in the
+      // availability window.  If every day in [availableFrom, availableTo] is
+      // already covered by a completed/confirmed/in_trip booking the car gets
+      // availability_ended and stops appearing in Explore.
+      try {
+        final remaining = await _firestore
+            .collection('bookings')
+            .where('carId', isEqualTo: carId)
+            .where('status', whereIn: ['confirmed', 'in_trip'])
+            .get();
+        if (remaining.docs.isEmpty) {
+          final carDoc = await _firestore.collection('cars').doc(carId).get();
+          final carData = carDoc.data();
+          DateTime? availableFrom;
+          DateTime? availableTo;
+          final rawFrom = carData?['availableFrom'];
+          final rawTo   = carData?['availableTo'];
+          if (rawFrom is Timestamp) {
+            availableFrom = rawFrom.toDate();
+          } else if (rawFrom is String) {
+            availableFrom = DateTime.tryParse(rawFrom);
+          }
+          if (rawTo is Timestamp) {
+            availableTo = rawTo.toDate();
+          } else if (rawTo is String) {
+            availableTo = DateTime.tryParse(rawTo);
+          }
+
+          final newStatus = await _computeNewCarStatus(carId, availableFrom, availableTo);
+          await _firestore.collection('cars').doc(carId).update({
+            'hubStatus': newStatus,
+            'status': newStatus,
+            'available': newStatus == 'ready_for_rental',
+          });
+        }
+      } catch (_) {}
 
       _trips.removeWhere((e) => e.booking.bookingId == bookingId);
       notifyListeners();
@@ -287,19 +335,37 @@ class MyTripsController extends ChangeNotifier {
       }
       print('[payForBooking] Payment successful');
 
-      // Step 3 — confirm in Firestore
+      // Step 3 — confirm in Firestore + set lifecycle fields
       await _firestore
           .collection('bookings')
           .doc(entry.booking.bookingId)
-          .update({'status': 'confirmed'});
+          .update({
+        'status': 'confirmed',
+        'pickupStatus': 'awaiting_pickup',
+        'paymentStatus': 'paid',
+      });
+
+      // Step 3b — mark car as reserved (best-effort; Cloud Function also handles this)
+      try {
+        await _firestore.collection('cars').doc(entry.booking.carId).update({
+          'hubStatus': 'reserved',
+          'status': 'reserved',
+          'available': false,
+        });
+      } catch (e) {
+        print('[payForBooking] Car status update failed (Cloud Function will handle): $e');
+      }
 
       // Step 4 — update local state
       final idx = _trips.indexWhere(
         (e) => e.booking.bookingId == entry.booking.bookingId,
       );
       if (idx != -1) {
-        final updatedBooking =
-            Booking.fromMap({...entry.booking.toMap(), 'status': 'confirmed'});
+        final updatedBooking = entry.booking.copyWith(
+          status: 'confirmed',
+          pickupStatus: 'awaiting_pickup',
+          paymentStatus: 'paid',
+        );
         _trips[idx] = TripEntry(booking: updatedBooking, car: entry.car);
       }
       notifyListeners();
@@ -329,14 +395,14 @@ class MyTripsController extends ChangeNotifier {
     }
   }
 
-  // ── Car Confirmed-Overlap Check ───────────────────────────────────────────
-  // Returns true if the car already has a CONFIRMED booking that overlaps
-  // with the booking's dates (excluding the booking itself).
+  // ── Car Confirmed/InTrip Overlap Check ───────────────────────────────────
+  // Returns true if the car already has a CONFIRMED or IN_TRIP booking that
+  // overlaps with the booking's dates (excluding the booking itself).
   Future<bool> _hasCarConfirmedOverlap(Booking booking) async {
     final snapshot = await _firestore
         .collection('bookings')
         .where('carId', isEqualTo: booking.carId)
-        .where('status', isEqualTo: 'confirmed')
+        .where('status', whereIn: ['confirmed', 'in_trip'])
         .get();
 
     for (final doc in snapshot.docs) {
@@ -385,6 +451,52 @@ class MyTripsController extends ChangeNotifier {
       );
     }
   }
+
+  // ── Car Status Computation ────────────────────────────────────────────────
+  // Returns 'availability_ended' when every day in [availableFrom, availableTo]
+  // is covered by a confirmed, in_trip, or completed booking.
+  // Returns 'ready_for_rental' when at least one free day remains.
+  // The check is intentionally independent of today's date.
+  Future<String> _computeNewCarStatus(
+    String carId,
+    DateTime? availableFrom,
+    DateTime? availableTo,
+  ) async {
+    if (availableFrom == null || availableTo == null) return 'ready_for_rental';
+
+    final snap = await _firestore
+        .collection('bookings')
+        .where('carId', isEqualTo: carId)
+        .where('status', whereIn: ['confirmed', 'in_trip', 'completed'])
+        .get();
+
+    final covered = <DateTime>{};
+    for (final doc in snap.docs) {
+      final data = doc.data();
+      final startRaw = data['startDate'];
+      final endRaw   = data['endDate'];
+      if (startRaw == null || endRaw == null) continue;
+      final start = startRaw is Timestamp ? startRaw.toDate() : DateTime.tryParse(startRaw.toString());
+      final end   = endRaw   is Timestamp ? endRaw.toDate()   : DateTime.tryParse(endRaw.toString());
+      if (start == null || end == null) continue;
+      var d = _dateOnly(start);
+      final endOnly = _dateOnly(end);
+      while (!d.isAfter(endOnly)) {
+        covered.add(d);
+        d = d.add(const Duration(days: 1));
+      }
+    }
+
+    var cursor = _dateOnly(availableFrom);
+    final endOnly = _dateOnly(availableTo);
+    while (!cursor.isAfter(endOnly)) {
+      if (!covered.contains(cursor)) return 'ready_for_rental';
+      cursor = cursor.add(const Duration(days: 1));
+    }
+    return 'availability_ended';
+  }
+
+  DateTime _dateOnly(DateTime d) => DateTime(d.year, d.month, d.day);
 
   void _showError(BuildContext context, String message) {
     if (context.mounted) {

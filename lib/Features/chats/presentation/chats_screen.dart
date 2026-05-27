@@ -58,7 +58,7 @@ class ChatsScreen extends StatelessWidget {
           textAlign: TextAlign.center,
           style: TextStyle(
             fontSize: 14,
-            color: LightColors.textColor.withOpacity(0.4),
+            color: LightColors.textColor.withValues(alpha:0.4),
           ),
         ),
       );
@@ -70,7 +70,7 @@ class ChatsScreen extends StatelessWidget {
       separatorBuilder: (_, __) => Divider(
         height: 1,
         indent: 72,
-        color: LightColors.textColor.withOpacity(0.08),
+        color: LightColors.textColor.withValues(alpha:0.08),
       ),
       itemBuilder: (context, index) {
         final item = ctrl.chats[index];
@@ -113,7 +113,7 @@ class _ChatTile extends StatelessWidget {
               width: 48,
               height: 48,
               decoration: BoxDecoration(
-                color: LightColors.primaryColor.withOpacity(0.1),
+                color: LightColors.primaryColor.withValues(alpha:0.1),
                 shape: BoxShape.circle,
               ),
               child: Center(
@@ -148,7 +148,15 @@ class _ChatTile extends StatelessWidget {
                     overflow: TextOverflow.ellipsis,
                   ),
                   const SizedBox(height: 3),
-                  _buildLastMessagePreview(item),
+                  Text(
+                    item.lastMessage.isEmpty ? 'No messages yet' : item.lastMessage,
+                    style: TextStyle(
+                      fontSize: 13,
+                      color: LightColors.textColor.withValues(alpha:0.5),
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
                 ],
               ),
             ),
@@ -161,92 +169,13 @@ class _ChatTile extends StatelessWidget {
                 _formatTime(item.lastTimestamp!),
                 style: TextStyle(
                   fontSize: 11,
-                  color: LightColors.textColor.withOpacity(0.4),
+                  color: LightColors.textColor.withValues(alpha:0.4),
                 ),
               ),
           ],
         ),
       ),
     );
-  }
-
-  Widget _buildLastMessagePreview(ChatListItem item) {
-    if (item.lastMessage.isEmpty) {
-      return Text(
-        'No messages yet',
-        style: TextStyle(
-          fontSize: 13,
-          color: LightColors.textColor.withOpacity(0.5),
-          fontStyle: FontStyle.italic,
-        ),
-        maxLines: 1,
-        overflow: TextOverflow.ellipsis,
-      );
-    }
-
-    final previewColor = LightColors.textColor.withOpacity(0.5);
-
-    switch (item.lastMessageType) {
-      case 'location':
-        return Row(
-          children: [
-            Icon(Icons.location_on, size: 15, color: previewColor),
-            const SizedBox(width: 4),
-            Text(
-              'Location',
-              style: TextStyle(fontSize: 13, color: previewColor),
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-            ),
-          ],
-        );
-      case 'image':
-        return Row(
-          children: [
-            Icon(Icons.photo_camera, size: 15, color: previewColor),
-            const SizedBox(width: 4),
-            Text(
-              'Photo',
-              style: TextStyle(fontSize: 13, color: previewColor),
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-            ),
-          ],
-        );
-      case 'video':
-        return Row(
-          children: [
-            Icon(Icons.videocam, size: 15, color: previewColor),
-            const SizedBox(width: 4),
-            Text(
-              'Video',
-              style: TextStyle(fontSize: 13, color: previewColor),
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-            ),
-          ],
-        );
-      case 'audio':
-        return Row(
-          children: [
-            Icon(Icons.mic, size: 15, color: previewColor),
-            const SizedBox(width: 4),
-            Text(
-              'Voice message',
-              style: TextStyle(fontSize: 13, color: previewColor),
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-            ),
-          ],
-        );
-      default:
-        return Text(
-          item.lastMessage,
-          style: TextStyle(fontSize: 13, color: previewColor),
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-        );
-    }
   }
 
   String _formatTime(DateTime dt) {

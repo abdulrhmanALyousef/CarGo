@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:cargo/core/widgets/custom_text_formField.dart';
+import 'package:cargo/core/widgets/custom_text_form_field.dart';
 import 'package:cargo/Features/auth/controllers/login_controller.dart';
 import 'package:cargo/core/theme/light_color.dart';
 import 'package:cargo/Features/auth/welcome_screen.dart';
@@ -35,12 +35,12 @@ class _LoginScreenState extends State<LoginScreen> {
                   shape: BoxShape.circle,
                 ),
                 child: IconButton(
-                  icon: Icon(Icons.arrow_back, color: LightColors.textColor),
+                  icon: const Icon(Icons.arrow_back, color: LightColors.textColor),
                   onPressed: () => Navigator.pop(context),
                 ),
               ),
             ),
-            title: Text(
+            title: const Text(
               'Login',
               style: TextStyle(
                 color: LightColors.textColor,
@@ -57,7 +57,7 @@ class _LoginScreenState extends State<LoginScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
+                  const Text(
                     'Welcome Back!',
                     style: TextStyle(
                       fontSize: 28,
@@ -70,7 +70,7 @@ class _LoginScreenState extends State<LoginScreen> {
                     'Enter your registered account to sign in',
                     style: TextStyle(
                       fontSize: 14,
-                      color: LightColors.textColor.withOpacity(0.54),
+                      color: LightColors.textColor.withValues(alpha:0.54),
                     ),
                   ),
                   const SizedBox(height: 30),
@@ -106,7 +106,7 @@ class _LoginScreenState extends State<LoginScreen> {
                             builder: (_) => const ForgotPasswordScreen(),
                           ),
                         ),
-                        child: Text(
+                        child: const Text(
                           'Forgot password?',
                           style: TextStyle(
                             color: LightColors.primaryColor,
@@ -137,7 +137,7 @@ class _LoginScreenState extends State<LoginScreen> {
                         backgroundColor: LightColors.primaryColor,
                         foregroundColor: Colors.white,
                         disabledBackgroundColor:
-                            LightColors.primaryColor.withOpacity(0.5),
+                            LightColors.primaryColor.withValues(alpha:0.5),
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(30),
                         ),
@@ -171,7 +171,7 @@ class _LoginScreenState extends State<LoginScreen> {
                         Text(
                           "Don't have an account? ",
                           style: TextStyle(
-                            color: LightColors.textColor.withOpacity(0.54),
+                            color: LightColors.textColor.withValues(alpha:0.54),
                             fontSize: 14,
                           ),
                         ),
@@ -181,7 +181,7 @@ class _LoginScreenState extends State<LoginScreen> {
                             MaterialPageRoute(
                                 builder: (_) => const WelcomeScreen()),
                           ),
-                          child: Text(
+                          child: const Text(
                             'Sign Up',
                             style: TextStyle(
                               color: LightColors.primaryColor,
@@ -261,7 +261,7 @@ class _Tab extends StatelessWidget {
             boxShadow: isSelected
                 ? [
                     BoxShadow(
-                      color: Colors.black.withOpacity(0.08),
+                      color: Colors.black.withValues(alpha:0.08),
                       blurRadius: 6,
                       offset: const Offset(0, 2),
                     )
@@ -277,7 +277,7 @@ class _Tab extends StatelessWidget {
                     isSelected ? FontWeight.w600 : FontWeight.w400,
                 color: isSelected
                     ? LightColors.textColor
-                    : LightColors.textColor.withOpacity(0.55),
+                    : LightColors.textColor.withValues(alpha:0.55),
               ),
             ),
           ),

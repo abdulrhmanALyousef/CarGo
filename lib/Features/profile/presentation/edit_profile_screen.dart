@@ -3,7 +3,7 @@ import 'package:cargo/Features/profile/controllers/profile_controller.dart';
 import 'package:cargo/core/constants/app_size.dart';
 import 'package:cargo/core/theme/light_color.dart';
 import 'package:cargo/core/widgets/app_button.dart';
-import 'package:cargo/core/widgets/custom_text_formField.dart';
+import 'package:cargo/core/widgets/custom_text_form_field.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 

@@ -134,7 +134,7 @@ class LoginController extends ChangeNotifier {
       );
 
       if (user == null) {
-        _showError(context, 'Login failed');
+        if (context.mounted) _showError(context, 'Login failed');
         return;
       }
 
@@ -146,7 +146,7 @@ class LoginController extends ChangeNotifier {
         );
       }
     } catch (e) {
-      _showError(context, 'Login failed: ${e.toString()}');
+      if (context.mounted) _showError(context, 'Login failed: ${e.toString()}');
     } finally {
       _isLoading = false;
       notifyListeners();
@@ -164,7 +164,7 @@ class LoginController extends ChangeNotifier {
         onCompleted: (credential) async {
           // Auto-completion flow
           final userCredential = await FirebaseAuth.instance.signInWithCredential(credential);
-          await _afterPhoneLogin(context, userCredential.user);
+          if (context.mounted) await _afterPhoneLogin(context, userCredential.user);
         },
         onFailed: (e) {
           _showError(context, e.message ?? 'Phone verification failed');
@@ -191,7 +191,7 @@ class LoginController extends ChangeNotifier {
         },
       );
     } catch (e) {
-      _showError(context, 'Failed to send code: ${e.toString()}');
+      if (context.mounted) _showError(context, 'Failed to send code: ${e.toString()}');
     } finally {
       _isLoading = false;
       notifyListeners();
@@ -215,9 +215,9 @@ class LoginController extends ChangeNotifier {
         verificationId: _verificationId!,
         smsCode: code,
       );
-      await _afterPhoneLogin(context, cred.user);
+      if (context.mounted) await _afterPhoneLogin(context, cred.user);
     } catch (e) {
-      _showError(context, 'Invalid code: ${e.toString()}');
+      if (context.mounted) _showError(context, 'Invalid code: ${e.toString()}');
     } finally {
       _isLoading = false;
       notifyListeners();

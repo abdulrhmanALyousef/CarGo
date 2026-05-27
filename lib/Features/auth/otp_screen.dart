@@ -38,12 +38,12 @@ class OtpScreen extends StatelessWidget {
                     shape: BoxShape.circle,
                   ),
                   child: IconButton(
-                    icon: Icon(Icons.arrow_back, color: LightColors.textColor),
+                    icon: const Icon(Icons.arrow_back, color: LightColors.textColor),
                     onPressed: () => Navigator.pop(context),
                   ),
                 ),
               ),
-              title: Text(
+              title: const Text(
                 'Verify Code',
                 style: TextStyle(
                   color: LightColors.textColor,
@@ -65,10 +65,10 @@ class OtpScreen extends StatelessWidget {
                       width: 72,
                       height: 72,
                       decoration: BoxDecoration(
-                        color: LightColors.primaryColor.withOpacity(0.1),
+                        color: LightColors.primaryColor.withValues(alpha:0.1),
                         shape: BoxShape.circle,
                       ),
-                      child: Icon(
+                      child: const Icon(
                         Icons.lock_outline_rounded,
                         size: 36,
                         color: LightColors.primaryColor,
@@ -77,7 +77,7 @@ class OtpScreen extends StatelessWidget {
                     const SizedBox(height: 24),
 
                     // ─── Title ───────────────────────────────────────────
-                    Text(
+                    const Text(
                       'Verify Code',
                       style: TextStyle(
                         fontSize: 26,
@@ -92,14 +92,14 @@ class OtpScreen extends StatelessWidget {
                       'Please enter the code we just sent to',
                       style: TextStyle(
                         fontSize: 14,
-                        color: LightColors.textColor.withOpacity(0.54),
+                        color: LightColors.textColor.withValues(alpha:0.54),
                       ),
                       textAlign: TextAlign.center,
                     ),
                     const SizedBox(height: 4),
                     Text(
                       phoneNumber,
-                      style: TextStyle(
+                      style: const TextStyle(
                         fontSize: 15,
                         fontWeight: FontWeight.w600,
                         color: LightColors.primaryColor,
@@ -126,7 +126,7 @@ class OtpScreen extends StatelessWidget {
                                   ? LightColors.primaryColor
                                   : isFilled
                                       ? LightColors.primaryColor
-                                          .withOpacity(0.5)
+                                          .withValues(alpha:0.5)
                                       : const Color(0xFFDDDDDD),
                               width: isFocused ? 2 : 1.5,
                             ),
@@ -134,7 +134,7 @@ class OtpScreen extends StatelessWidget {
                                 ? [
                                     BoxShadow(
                                       color: LightColors.primaryColor
-                                          .withOpacity(0.15),
+                                          .withValues(alpha:0.15),
                                       blurRadius: 8,
                                       spreadRadius: 1,
                                     )
@@ -152,7 +152,7 @@ class OtpScreen extends StatelessWidget {
                                 FilteringTextInputFormatter.digitsOnly,
                                 LengthLimitingTextInputFormatter(1),
                               ],
-                              style: TextStyle(
+                              style: const TextStyle(
                                 fontSize: 22,
                                 fontWeight: FontWeight.bold,
                                 color: LightColors.textColor,
@@ -178,7 +178,7 @@ class OtpScreen extends StatelessWidget {
                     ctrl.canResend
                         ? GestureDetector(
                             onTap: () => ctrl.resendOtp(context),
-                            child: Text(
+                            child: const Text(
                               'Resend Code',
                               style: TextStyle(
                                 fontSize: 14,
@@ -192,12 +192,12 @@ class OtpScreen extends StatelessWidget {
                               text: 'Resend code in ',
                               style: TextStyle(
                                 fontSize: 14,
-                                color: LightColors.textColor.withOpacity(0.54),
+                                color: LightColors.textColor.withValues(alpha:0.54),
                               ),
                               children: [
                                 TextSpan(
                                   text: ctrl.timerText,
-                                  style: TextStyle(
+                                  style: const TextStyle(
                                     fontWeight: FontWeight.bold,
                                     color: LightColors.primaryColor,
                                   ),
@@ -219,7 +219,7 @@ class OtpScreen extends StatelessWidget {
                         style: ElevatedButton.styleFrom(
                           backgroundColor: LightColors.primaryColor,
                           disabledBackgroundColor:
-                              LightColors.primaryColor.withOpacity(0.4),
+                              LightColors.primaryColor.withValues(alpha:0.4),
                           foregroundColor: Colors.white,
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(30),

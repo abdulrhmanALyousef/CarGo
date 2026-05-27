@@ -32,29 +32,29 @@ class CarDetailsController extends ChangeNotifier {
   Future<void> fetchOwnerInfo() async {
     final ownerId = car.ownerId.trim();
     if (ownerId.isEmpty) return;
-    print('[Call] fetchOwnerInfo — ownerId=$ownerId');
+    debugPrint('[Call] fetchOwnerInfo — ownerId=$ownerId');
     try {
       final userData = await FirebaseService().getUserData(uid: ownerId);
       if (userData != null) {
         _ownerName = userData['fullName'] as String?;
         _ownerPhone = userData['phone'] as String?;
-        print('[Call] owner fetched — name=$_ownerName | phone=$_ownerPhone');
+        debugPrint('[Call] owner fetched — name=$_ownerName | phone=$_ownerPhone');
         notifyListeners();
       } else {
-        print('[Call] no user document found for ownerId=$ownerId');
+        debugPrint('[Call] no user document found for ownerId=$ownerId');
       }
     } catch (e) {
-      print('[Call] ERROR fetching owner info: $e');
+      debugPrint('[Call] ERROR fetching owner info: $e');
     }
   }
 
   // ─── Call owner ───────────────────────────────────────────────────────────
   Future<void> callOwner(BuildContext context) async {
     final phone = _ownerPhone?.trim() ?? '';
-    print('[Call] callOwner — phoneNumber="$phone"');
+    debugPrint('[Call] callOwner — phoneNumber="$phone"');
 
     if (phone.isEmpty) {
-      print('[Call] phone number is empty — showing snackbar');
+      debugPrint('[Call] phone number is empty — showing snackbar');
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Owner phone number not available.')),
@@ -65,13 +65,13 @@ class CarDetailsController extends ChangeNotifier {
 
     // Uri.parse('tel:…') is more reliable across platforms than Uri(scheme:).
     final uri = Uri.parse('tel:$phone');
-    print('[Call] launching $uri');
+    debugPrint('[Call] launching $uri');
 
     try {
       if (await canLaunchUrl(uri)) {
         await launchUrl(uri);
       } else {
-        print('[Call] canLaunchUrl returned false for $uri');
+        debugPrint('[Call] canLaunchUrl returned false for $uri');
         if (context.mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(content: Text('Could not launch the phone app.')),
@@ -79,7 +79,7 @@ class CarDetailsController extends ChangeNotifier {
         }
       }
     } catch (e) {
-      print('[Call] ERROR launching dialer: $e');
+      debugPrint('[Call] ERROR launching dialer: $e');
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Could not launch the phone app.')),

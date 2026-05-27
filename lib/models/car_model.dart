@@ -1,5 +1,9 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 
+// Hub operational statuses — drives visibility and owner dashboard display.
+// awaiting_dropoff → at_hub → available → booked → in_trip → (back to available)
+const String kHubLocation = 'CarGo Hub — Al Yasmin, Riyadh';
+
 class Car {
   final String id;
   final bool available;
@@ -22,6 +26,12 @@ class Car {
   final DateTime? availableFrom;
   final DateTime? availableTo;
   final String city;
+  final String hubStatus;
+  final String hubLocation;
+  final String category;
+  final String fuelType;
+  final DateTime? deliveryRequestedAt;
+  final String? rejectionReason;
 
   Car({
     required this.id,
@@ -45,6 +55,12 @@ class Car {
     this.availableFrom,
     this.availableTo,
     this.city = '',
+    this.hubStatus = 'awaiting_dropoff',
+    this.hubLocation = kHubLocation,
+    this.category = '',
+    this.fuelType = 'Petrol',
+    this.deliveryRequestedAt,
+    this.rejectionReason,
   });
 
   factory Car.fromJson(Map<String, dynamic> json) {
@@ -72,6 +88,15 @@ class Car {
       availableFrom: _parseDate(json['availableFrom']),
       availableTo: _parseDate(json['availableTo']),
       city: json['city'] as String? ?? '',
+      // The portal sometimes only updates 'status' without touching 'hubStatus'.
+      // If 'status' says ready_for_rental, trust it — the CF keeps them in sync
+      // after any booking event, so divergence only happens at verification time.
+      hubStatus: _resolveHubStatus(json['hubStatus'], json['status']),
+      hubLocation: json['hubLocation'] as String? ?? kHubLocation,
+      category: json['category'] as String? ?? '',
+      fuelType: json['fuelType'] as String? ?? 'Petrol',
+      deliveryRequestedAt: _parseDate(json['deliveryRequestedAt']),
+      rejectionReason: json['rejectionReason'] as String?,
     );
   }
 
@@ -102,8 +127,65 @@ class Car {
       'availableTo':
           availableTo != null ? Timestamp.fromDate(availableTo!) : null,
       'city': city,
+      'hubStatus': hubStatus,
+      'hubLocation': hubLocation,
+      'category': category,
+      'fuelType': fuelType,
+      if (deliveryRequestedAt != null)
+        'deliveryRequestedAt': Timestamp.fromDate(deliveryRequestedAt!),
+      'rejectionReason': rejectionReason,
     };
   }
+
+  Car copyWith({
+    String? hubStatus,
+    bool? available,
+    DateTime? deliveryRequestedAt,
+    String? rejectionReason,
+  }) {
+    return Car(
+      id: id,
+      available: available ?? this.available,
+      brand: brand,
+      model: model,
+      images: images,
+      isElectric: isElectric,
+      km: km,
+      location: location,
+      overview: overview,
+      ownerId: ownerId,
+      pricePerDay: pricePerDay,
+      rating: rating,
+      reviewsCount: reviewsCount,
+      seats: seats,
+      transmission: transmission,
+      year: year,
+      ownerName: ownerName,
+      ownerImage: ownerImage,
+      availableFrom: availableFrom,
+      availableTo: availableTo,
+      city: city,
+      hubStatus: hubStatus ?? this.hubStatus,
+      hubLocation: hubLocation,
+      category: category,
+      fuelType: fuelType,
+      deliveryRequestedAt: deliveryRequestedAt ?? this.deliveryRequestedAt,
+      rejectionReason: rejectionReason ?? this.rejectionReason,
+    );
+  }
+}
+
+// ── Hub status resolution ─────────────────────────────────────────────────────
+// The portal may update only the 'status' field while 'hubStatus' lags behind
+// at an earlier verification state ('at_hub', 'awaiting_employee_verification').
+// After any booking event the Cloud Function syncs both fields, so divergence
+// is only possible between portal verification and the first booking write.
+// Rule: if 'status' says ready_for_rental, the car is ready regardless of hubStatus.
+String _resolveHubStatus(dynamic hubStatusRaw, dynamic statusRaw) {
+  final hs = hubStatusRaw as String?;
+  final s  = statusRaw  as String?;
+  if (s == 'ready_for_rental') return 'ready_for_rental';
+  return hs ?? s ?? 'awaiting_dropoff';
 }
 
 // ── Date parsing helper ───────────────────────────────────────────────────────

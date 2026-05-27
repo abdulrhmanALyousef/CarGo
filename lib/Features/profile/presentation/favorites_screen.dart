@@ -82,7 +82,7 @@ class _FavoritesBody extends StatelessWidget {
           final car = ctrl.favorites[index];
           return Stack(
             children: [
-              CarCard(model: car),
+              CarCard(model: car, showFavoriteButton: false),
               Positioned(
                 top: 8,
                 right: 8,

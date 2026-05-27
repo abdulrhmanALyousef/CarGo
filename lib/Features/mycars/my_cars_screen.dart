@@ -2,8 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:cargo/Features/mycars/my_cars_controller.dart';
+import 'package:cargo/Features/add_car/add_car_screen.dart';
+import 'package:cargo/Features/owner/car_timeline_screen.dart';
+import 'package:cargo/Features/owner/owner_models.dart';
 import 'package:cargo/core/theme/light_color.dart';
 import 'package:cargo/core/widgets/app_button.dart';
+import 'package:cargo/core/widgets/hub_info_card.dart';
 import 'package:cargo/core/widgets/profile_menu_button.dart';
 import 'package:cargo/models/car_model.dart';
 
@@ -26,7 +30,8 @@ class MyCarsScreen extends StatelessWidget {
               actions: [
                 IconButton(
                   icon: const Icon(Icons.refresh),
-                  onPressed: () => context.read<MyCarsController>().fetchMyCars(),
+                  onPressed: () =>
+                      context.read<MyCarsController>().fetchMyCars(),
                 ),
                 const Padding(
                   padding: EdgeInsets.only(right: 12),
@@ -34,14 +39,30 @@ class MyCarsScreen extends StatelessWidget {
                 ),
               ],
             ),
+            floatingActionButton: FloatingActionButton.extended(
+              backgroundColor: LightColors.primaryColor,
+              onPressed: () async {
+                await Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => const AddCarScreen()),
+                );
+                if (context.mounted) {
+                  context.read<MyCarsController>().fetchMyCars();
+                }
+              },
+              icon: const Icon(Icons.add_rounded, color: Colors.white),
+              label: const Text(
+                'Add Car',
+                style: TextStyle(
+                    color: Colors.white, fontWeight: FontWeight.w600),
+              ),
+            ),
             body: _buildBody(context, ctrl),
           );
         },
       ),
     );
   }
-
-  // ── Body ──────────────────────────────────────────────────────────────────
 
   Widget _buildBody(BuildContext context, MyCarsController ctrl) {
     if (!ctrl.isAuthenticated) {
@@ -67,10 +88,8 @@ class MyCarsScreen extends StatelessWidget {
           children: [
             const Icon(Icons.error_outline, size: 48, color: Colors.red),
             const SizedBox(height: 12),
-            Text(
-              'Failed to load your cars',
-              style: TextStyle(fontSize: 16, color: Colors.grey.shade600),
-            ),
+            Text('Failed to load your cars',
+                style: TextStyle(fontSize: 16, color: Colors.grey.shade600)),
             const SizedBox(height: 12),
             AppButton(
               text: 'Retry',
@@ -91,7 +110,7 @@ class MyCarsScreen extends StatelessWidget {
             Icon(Icons.directions_car_outlined, size: 72, color: Colors.grey),
             SizedBox(height: 16),
             Text(
-              "You don't have cars right now.",
+              "You don't have any cars yet.",
               style: TextStyle(
                 fontSize: 18,
                 fontWeight: FontWeight.w600,
@@ -113,25 +132,31 @@ class MyCarsScreen extends StatelessWidget {
         separatorBuilder: (_, __) => const SizedBox(height: 16),
         itemBuilder: (context, index) {
           final car = ctrl.cars[index];
-          final requests = ctrl.requestsMap[car.id] ?? [];
-          return _CarSection(car: car, requests: requests);
+          return _CarCard(car: car);
         },
       ),
     );
   }
 }
 
-// ── Car Section ───────────────────────────────────────────────────────────────
-// Shows a car's header image + name, followed by all pending/approved requests.
+// ── Car Card ───────────────────────────────────────────────────────────────────
 
-class _CarSection extends StatelessWidget {
-  const _CarSection({required this.car, required this.requests});
+class _CarCard extends StatelessWidget {
+  const _CarCard({required this.car});
 
   final Car car;
-  final List<BookingRequestEntry> requests;
 
   @override
   Widget build(BuildContext context) {
+    final statusMeta = kHubStatusMeta[car.hubStatus] ??
+        (label: car.hubStatus, color: Colors.grey);
+    final isAwaitingDropoff = car.hubStatus == 'awaiting_dropoff';
+    final isUnavailable = car.hubStatus == 'unavailable';
+    final isPendingVerification =
+        car.hubStatus == 'awaiting_employee_verification';
+    final isRejected = car.hubStatus == 'delivery_rejected';
+    final isAvailabilityEnded = car.hubStatus == 'availability_ended';
+
     return Card(
       elevation: 2,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
@@ -154,331 +179,342 @@ class _CarSection extends StatelessWidget {
                 : _placeholder(),
           ),
 
-          // ── Car Name + Price ───────────────────────────────────────────────
           Padding(
-            padding: const EdgeInsets.fromLTRB(14, 12, 14, 0),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            padding: const EdgeInsets.all(14),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Flexible(
-                  child: Text(
-                    '${car.brand} ${car.model}',
-                    style: const TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w700,
-                      color: LightColors.textColor,
+                // ── Name + price ──────────────────────────────────────────────
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Flexible(
+                      child: Text(
+                        '${car.brand} ${car.model} (${car.year})',
+                        style: const TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w700,
+                          color: LightColors.textColor,
+                        ),
+                      ),
+                    ),
+                    Text(
+                      'SAR ${car.pricePerDay.toStringAsFixed(0)}/day',
+                      style: const TextStyle(
+                        fontSize: 13,
+                        color: LightColors.primaryColor,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
+                ),
+
+                const SizedBox(height: 8),
+
+                // ── Hub status badge + location ───────────────────────────────
+                Row(
+                  children: [
+                    _HubStatusBadge(
+                        label: statusMeta.label, color: statusMeta.color),
+                    const SizedBox(width: 8),
+                    const Icon(Icons.location_on,
+                        size: 12, color: LightColors.primaryColor),
+                    const SizedBox(width: 2),
+                    Flexible(
+                      child: Text(
+                        car.hubLocation,
+                        style: const TextStyle(
+                            fontSize: 11, color: Color(0xFF888888)),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                  ],
+                ),
+
+                // ── Hub delivery flow ─────────────────────────────────────────
+                if (isAwaitingDropoff) ...[
+                  const SizedBox(height: 12),
+                  HubDropOffInstructionsCard(
+                      firstBookingDate: car.availableFrom),
+                  const SizedBox(height: 8),
+                  AppButton(
+                    text: "I've Delivered My Car to the Hub",
+                    onTap: () => context
+                        .read<MyCarsController>()
+                        .confirmDelivery(car, context),
+                    icon: const Icon(Icons.check_circle_outline,
+                        size: 16, color: Colors.white),
+                    borderRadius: 10,
+                    height: 44,
+                    fontSize: 13,
+                  ),
+                ],
+
+                // ── Awaiting employee verification ────────────────────────────
+                if (isPendingVerification) ...[
+                  const SizedBox(height: 12),
+                  _VerificationPendingBanner(),
+                ],
+
+                // ── Delivery rejected ─────────────────────────────────────────
+                if (isRejected) ...[
+                  const SizedBox(height: 12),
+                  _RejectionBanner(reason: car.rejectionReason),
+                  const SizedBox(height: 8),
+                  AppButton(
+                    text: 'Re-deliver My Car to the Hub',
+                    onTap: () => context
+                        .read<MyCarsController>()
+                        .acknowledgeRejection(car, context),
+                    icon: const Icon(Icons.refresh_rounded,
+                        size: 16, color: Colors.white),
+                    color: const Color(0xFF1565C0),
+                    borderRadius: 10,
+                    height: 44,
+                    fontSize: 13,
+                  ),
+                ],
+
+                // ── Availability period ended ─────────────────────────────────
+                if (isAvailabilityEnded) ...[
+                  const SizedBox(height: 12),
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF795548).withValues(alpha: 0.08),
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(
+                          color: const Color(0xFF795548).withValues(alpha: 0.3)),
+                    ),
+                    child: const Row(
+                      children: [
+                        Icon(Icons.event_busy_rounded,
+                            size: 16, color: Color(0xFF795548)),
+                        SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            'The rental period for this car has ended. '
+                            'Update the availability dates to re-list it.',
+                            style: TextStyle(
+                                fontSize: 12, color: Color(0xFF795548)),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+
+                // ── Resume paused listing ─────────────────────────────────────
+                if (isUnavailable) ...[
+                  const SizedBox(height: 12),
+                  AppButton(
+                    text: 'Resume Listing',
+                    onTap: () => context
+                        .read<MyCarsController>()
+                        .resumeListing(car, context),
+                    icon: const Icon(Icons.play_circle_outline,
+                        size: 16, color: Colors.white),
+                    color: const Color(0xFF1565C0),
+                    borderRadius: 10,
+                    height: 44,
+                    fontSize: 13,
+                  ),
+                ],
+
+                // ── Booking Timeline ───────────────────────────────────────────
+                const SizedBox(height: 10),
+                GestureDetector(
+                  onTap: () => Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => CarTimelineScreen(car: car),
+                    ),
+                  ),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 12, vertical: 8),
+                    decoration: BoxDecoration(
+                      color: LightColors.primaryColor.withValues(alpha: 0.06),
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(
+                          color: LightColors.primaryColor.withValues(alpha: 0.2)),
+                    ),
+                    child: const Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(Icons.timeline_rounded,
+                            size: 14, color: LightColors.primaryColor),
+                        SizedBox(width: 6),
+                        Text(
+                          'View Booking Timeline',
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                            color: LightColors.primaryColor,
+                          ),
+                        ),
+                        SizedBox(width: 4),
+                        Icon(Icons.arrow_forward_ios_rounded,
+                            size: 10, color: LightColors.primaryColor),
+                      ],
                     ),
                   ),
                 ),
-                Text(
-                  'SAR ${car.pricePerDay.toStringAsFixed(0)}/day',
-                  style: const TextStyle(
-                    fontSize: 13,
-                    color: LightColors.primaryColor,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
               ],
             ),
           ),
-
-          Padding(
-            padding: const EdgeInsets.fromLTRB(14, 4, 14, 0),
-            child: Row(
-              children: [
-                const Icon(Icons.location_on,
-                    size: 13, color: LightColors.primaryColor),
-                const SizedBox(width: 2),
-                Text(
-                  car.location,
-                  style: TextStyle(
-                      fontSize: 12,
-                      color: LightColors.textColor.withOpacity(0.5)),
-                ),
-              ],
-            ),
-          ),
-
-          const SizedBox(height: 12),
-
-          // ── Requests Header ────────────────────────────────────────────────
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 14),
-            child: Row(
-              children: [
-                const Icon(Icons.inbox_outlined,
-                    size: 16, color: LightColors.primaryColor),
-                const SizedBox(width: 6),
-                Text(
-                  requests.isEmpty
-                      ? 'No pending requests'
-                      : '${requests.length} booking request${requests.length > 1 ? 's' : ''}',
-                  style: const TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w600,
-                    color: LightColors.textColor,
-                  ),
-                ),
-              ],
-            ),
-          ),
-
-          if (requests.isEmpty) ...[
-            Padding(
-              padding: const EdgeInsets.fromLTRB(14, 8, 14, 14),
-              child: Text(
-                'All clear — no one has requested this car yet.',
-                style: TextStyle(
-                    fontSize: 12, color: LightColors.textColor.withOpacity(0.5)),
-              ),
-            ),
-          ] else ...[
-            const SizedBox(height: 8),
-            // List of requests
-            ...requests.map(
-              (req) => _RequestRow(request: req, carId: car.id),
-            ),
-            const SizedBox(height: 8),
-          ],
         ],
       ),
     );
   }
 
-  Widget _placeholder() {
+  Widget _placeholder() => Container(
+        height: 160,
+        width: double.infinity,
+        color: Colors.grey.shade200,
+        child: const Icon(Icons.directions_car_outlined,
+            size: 48, color: Colors.grey),
+      );
+}
+
+// ── Verification Pending Banner ────────────────────────────────────────────────
+
+class _VerificationPendingBanner extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
     return Container(
-      height: 160,
-      width: double.infinity,
-      color: Colors.grey.shade200,
-      child:
-          const Icon(Icons.directions_car_outlined, size: 48, color: Colors.grey),
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: const Color(0xFFFFF3E0),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: const Color(0xFFE65100).withValues(alpha: 0.5)),
+      ),
+      child: const Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              SizedBox(
+                width: 16,
+                height: 16,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2,
+                  color: Color(0xFFE65100),
+                ),
+              ),
+              SizedBox(width: 8),
+              Text(
+                'Awaiting Employee Verification',
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w700,
+                  color: Color(0xFFE65100),
+                ),
+              ),
+            ],
+          ),
+          SizedBox(height: 8),
+          Text(
+            'Your delivery request has been submitted. A CarGo employee will inspect your vehicle and confirm its arrival at the hub.',
+            style: TextStyle(
+              fontSize: 12,
+              color: Color(0xFF5D4037),
+              height: 1.4,
+            ),
+          ),
+          SizedBox(height: 6),
+          Text(
+            'You will be notified once the vehicle is verified.',
+            style: TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
+              color: Color(0xFFE65100),
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
 
-// ── Request Row ───────────────────────────────────────────────────────────────
-// Shows customer name, requested dates, and Accept / Reject buttons.
+// ── Delivery Rejected Banner ───────────────────────────────────────────────────
 
-class _RequestRow extends StatelessWidget {
-  const _RequestRow({required this.request, required this.carId});
+class _RejectionBanner extends StatelessWidget {
+  const _RejectionBanner({this.reason});
 
-  final BookingRequestEntry request;
-  final String carId;
+  final String? reason;
 
   @override
   Widget build(BuildContext context) {
-    final ctrl = context.watch<MyCarsController>();
-    final booking = request.booking;
-    final isProcessing = ctrl.actionId == booking.bookingId;
-
     return Container(
-      margin: const EdgeInsets.fromLTRB(14, 0, 14, 10),
-      padding: const EdgeInsets.all(12),
+      padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: LightColors.backgroundColor,
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: const Color(0xFFDDE1E7)),
+        color: const Color(0xFFFFEBEE),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: const Color(0xFFC62828).withValues(alpha: 0.5)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // ── Customer + Status ──────────────────────────────────────────────
-          Row(
+          const Row(
             children: [
-              const Icon(Icons.person_outline,
-                  size: 16, color: LightColors.primaryColor),
-              const SizedBox(width: 6),
-              Expanded(
-                child: Text(
-                  request.customerName,
-                  style: const TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w600,
-                    color: LightColors.textColor,
-                  ),
+              Icon(Icons.cancel_outlined, size: 16, color: Color(0xFFC62828)),
+              SizedBox(width: 6),
+              Text(
+                'Delivery Rejected',
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w700,
+                  color: Color(0xFFC62828),
                 ),
               ),
-              _RequestStatusBadge(status: booking.status),
             ],
           ),
-
           const SizedBox(height: 8),
-
-          // ── Dates ──────────────────────────────────────────────────────────
-          Row(
-            children: [
-              const Icon(Icons.calendar_today_outlined,
-                  size: 14, color: Colors.grey),
-              const SizedBox(width: 6),
-              Text(
-                '${_fmt(booking.startDate)}  →  ${_fmt(booking.endDate)}',
-                style:
-                    TextStyle(fontSize: 13, color: Colors.grey.shade700),
-              ),
-            ],
-          ),
-
-          const SizedBox(height: 4),
-
-          // ── Price ──────────────────────────────────────────────────────────
-          Row(
-            children: [
-              const Icon(Icons.attach_money, size: 14, color: Colors.grey),
-              const SizedBox(width: 6),
-              Text(
-                'SAR ${booking.totalPrice.toStringAsFixed(0)} total',
-                style:
-                    TextStyle(fontSize: 13, color: Colors.grey.shade700),
-              ),
-            ],
-          ),
-
-          const SizedBox(height: 10),
-
-          // ── Action Buttons ─────────────────────────────────────────────────
-          if (isProcessing)
-            const Center(
-              child: Padding(
-                padding: EdgeInsets.symmetric(vertical: 4),
-                child: SizedBox(
-                  height: 24,
-                  width: 24,
-                  child: CircularProgressIndicator(
-                    color: LightColors.primaryColor,
-                    strokeWidth: 2,
-                  ),
-                ),
-              ),
-            )
-          else if (booking.status == 'pending')
-            Row(
-              children: [
-                // Accept
-                Expanded(
-                  child: AppButton(
-                    text: 'Accept',
-                    onTap: () => context.read<MyCarsController>().acceptRequest(
-                          request,
-                          carId,
-                          context,
-                        ),
-                    borderRadius: 8,
-                    height: 44,
-                    fontSize: 13,
-                  ),
-                ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: AppButton(
-                    text: 'Reject',
-                    onTap: () => _confirmReject(context),
-                    outlined: true,
-                    color: Colors.red,
-                    textColor: Colors.red,
-                    borderRadius: 8,
-                    height: 44,
-                    fontSize: 13,
-                  ),
-                ),
-              ],
-            )
-          else if (booking.status == 'approved')
-            // Already accepted — waiting for payment
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
-              decoration: BoxDecoration(
-                color: Colors.blue.shade50,
-                borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: Colors.blue.shade200),
-              ),
-              child: Row(
-                children: [
-                  Icon(Icons.hourglass_top_rounded,
-                      size: 14, color: Colors.blue.shade700),
-                  const SizedBox(width: 6),
-                  Expanded(
-                    child: Text(
-                      'Waiting for ${request.customerName} to complete payment.',
-                      style: TextStyle(
-                          fontSize: 12, color: Colors.blue.shade800),
-                    ),
-                  ),
-                ],
+          if (reason != null && reason!.isNotEmpty) ...[
+            const Text(
+              'Reason:',
+              style: TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+                color: Color(0xFF5D4037),
               ),
             ),
-
-          // ── Chat with Renter ────────────────────────────────────────────
-          if (!isProcessing) ...[
+            const SizedBox(height: 2),
+            Text(
+              reason!,
+              style: const TextStyle(
+                fontSize: 12,
+                color: Color(0xFF5D4037),
+                height: 1.4,
+              ),
+            ),
             const SizedBox(height: 8),
-            AppButton(
-              text: 'Chat with Renter',
-              onTap: () => context
-                  .read<MyCarsController>()
-                  .openChatWithRenter(request, context),
-              outlined: true,
-              icon: const Icon(
-                Icons.chat_bubble_outline,
-                size: 16,
-                color: LightColors.primaryColor,
-              ),
-              color: LightColors.primaryColor,
-              textColor: LightColors.primaryColor,
-              borderRadius: 8,
-              height: 44,
-              fontSize: 13,
-            ),
           ],
+          const Text(
+            'Please resolve the issue and re-deliver your vehicle to the hub.',
+            style: TextStyle(
+              fontSize: 12,
+              color: Color(0xFF5D4037),
+              height: 1.4,
+            ),
+          ),
         ],
       ),
     );
   }
-
-  void _confirmReject(BuildContext context) {
-    showDialog<bool>(
-      context: context,
-      builder: (_) => AlertDialog(
-        title: const Text('Reject Request'),
-        content: Text(
-          'Reject the booking request from ${request.customerName}? '
-          'They will be notified that their request was declined.',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: const Text('Keep'),
-          ),
-          TextButton(
-            onPressed: () => Navigator.pop(context, true),
-            style: TextButton.styleFrom(foregroundColor: Colors.red),
-            child: const Text('Reject'),
-          ),
-        ],
-      ),
-    ).then((confirmed) {
-      if (confirmed == true && context.mounted) {
-        context.read<MyCarsController>().rejectRequest(request, carId, context);
-      }
-    });
-  }
-
-  String _fmt(DateTime d) =>
-      '${d.day.toString().padLeft(2, '0')}.${d.month.toString().padLeft(2, '0')}.${d.year}';
 }
 
-// ── Request Status Badge ──────────────────────────────────────────────────────
+// ── Hub Status Badge ───────────────────────────────────────────────────────────
 
-class _RequestStatusBadge extends StatelessWidget {
-  const _RequestStatusBadge({required this.status});
+class _HubStatusBadge extends StatelessWidget {
+  const _HubStatusBadge({required this.label, required this.color});
 
-  final String status;
+  final String label;
+  final Color color;
 
   @override
   Widget build(BuildContext context) {
-    final (color, label) = switch (status) {
-      'approved' => (Colors.blue.shade600, 'Approved'),
-      _ => (Colors.orange.shade700, 'Pending'),
-    };
-
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
       decoration: BoxDecoration(
@@ -486,13 +522,24 @@ class _RequestStatusBadge extends StatelessWidget {
         borderRadius: BorderRadius.circular(20),
         border: Border.all(color: color.withValues(alpha: 0.4)),
       ),
-      child: Text(
-        label,
-        style: TextStyle(
-          fontSize: 11,
-          fontWeight: FontWeight.w600,
-          color: color,
-        ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            width: 6,
+            height: 6,
+            decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+          ),
+          const SizedBox(width: 5),
+          Text(
+            label,
+            style: TextStyle(
+              fontSize: 11,
+              fontWeight: FontWeight.w600,
+              color: color,
+            ),
+          ),
+        ],
       ),
     );
   }

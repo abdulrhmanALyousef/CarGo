@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
@@ -9,12 +11,12 @@ class CarListController extends ChangeNotifier {
 
   CarListController({required this.cityName}) {
     searchController.addListener(_applyFilters);
-    fetchCars();
+    _startCarsStream();
   }
 
   final TextEditingController searchController = TextEditingController();
 
-  // ── Filter panel visibility ───────────────────────────────────────────────
+  // ── Filter panel ──────────────────────────────────────────────────────────
   bool _showFilters = false;
   bool get showFilters => _showFilters;
 
@@ -23,7 +25,7 @@ class CarListController extends ChangeNotifier {
     notifyListeners();
   }
 
-  // ── Price range (slider) ──────────────────────────────────────────────────
+  // ── Price range ───────────────────────────────────────────────────────────
   static const double minPrice = 0;
   static const double maxPrice = 500;
   RangeValues _priceRange = const RangeValues(0, 500);
@@ -37,12 +39,7 @@ class CarListController extends ChangeNotifier {
 
   // ── Car types ─────────────────────────────────────────────────────────────
   final List<String> carTypes = [
-    'Family',
-    'Sport',
-    'Off-Road',
-    'SUV',
-    'Luxury',
-    'Economic',
+    'Sedan', 'SUV', 'Hatchback', 'Coupe', 'Pickup', 'Van', 'Luxury', 'Convertible',
   ];
   final Set<String> _selectedTypes = {};
   Set<String> get selectedTypes => _selectedTypes;
@@ -100,38 +97,53 @@ class CarListController extends ChangeNotifier {
   List<Car> _filtered = [];
   List<Car> get cars => _filtered;
 
-  bool _isLoading = false;
+  bool _isLoading = true;
   bool get isLoading => _isLoading;
 
   String? _error;
   String? get error => _error;
 
+  StreamSubscription<QuerySnapshot>? _carsSubscription;
+
+  // ── Real-Time Stream ──────────────────────────────────────────────────────
+  void _startCarsStream() {
+    final currentUid = FirebaseAuth.instance.currentUser?.uid;
+
+    _carsSubscription = FirebaseFirestore.instance
+        .collection('cars')
+        .where('city', isEqualTo: cityName)
+        .snapshots()
+        .listen(
+      (snap) {
+        _all = snap.docs.map((doc) {
+          final data = Map<String, dynamic>.from(doc.data());
+          data['id'] = doc.id;
+          return Car.fromJson(data);
+        }).where((car) {
+          if (car.ownerId == currentUid) return false;
+          // Only show cars ready for rental — excludes reserved, in_trip, etc.
+          return car.hubStatus == 'ready_for_rental';
+        }).toList();
+
+        _isLoading = false;
+        _error = null;
+        _applyFilters();
+      },
+      onError: (e) {
+        _error = e.toString();
+        _isLoading = false;
+        notifyListeners();
+      },
+    );
+  }
+
+  // Kept for pull-to-refresh compatibility.
   Future<void> fetchCars() async {
+    _carsSubscription?.cancel();
     _isLoading = true;
     _error = null;
     notifyListeners();
-    try {
-      final snapshot = await FirebaseFirestore.instance
-          .collection('cars')
-          .where('city', isEqualTo: cityName)
-          .get();
-      final currentUid = FirebaseAuth.instance.currentUser?.uid;
-      _all = snapshot.docs
-          .map((doc) {
-            final data = doc.data();
-            data['id'] = doc.id;
-            return Car.fromJson(data);
-          })
-          .where((car) => car.ownerId != currentUid)
-          .toList();
-      _applyFilters();
-    } catch (e) {
-      _error = e.toString();
-      notifyListeners();
-    } finally {
-      _isLoading = false;
-      notifyListeners();
-    }
+    _startCarsStream();
   }
 
   // ── Filtering ─────────────────────────────────────────────────────────────
@@ -139,30 +151,21 @@ class CarListController extends ChangeNotifier {
     final query = searchController.text.trim().toLowerCase();
 
     _filtered = _all.where((car) {
-      // Text filter
       if (query.isNotEmpty) {
         final haystack = '${car.brand} ${car.model}'.toLowerCase();
         if (!haystack.contains(query)) return false;
       }
 
-      // Price range filter
       if (car.pricePerDay < _priceRange.start ||
           car.pricePerDay > _priceRange.end) {
         return false;
       }
 
-      // Car type filter
-      if (_selectedTypes.isNotEmpty) {
-        final matchesType = _selectedTypes.any((type) {
-          final t = type.toLowerCase();
-          return car.brand.toLowerCase().contains(t) ||
-              car.overview.toLowerCase().contains(t) ||
-              car.transmission.toLowerCase().contains(t);
-        });
-        if (!matchesType) return false;
+      if (_selectedTypes.isNotEmpty &&
+          !_selectedTypes.contains(car.category)) {
+        return false;
       }
 
-      // Date availability filter
       if (_dateRange != null) {
         final start = _dateRange!.start;
         final end = _dateRange!.end;
@@ -191,6 +194,7 @@ class CarListController extends ChangeNotifier {
 
   @override
   void dispose() {
+    _carsSubscription?.cancel();
     searchController.removeListener(_applyFilters);
     searchController.dispose();
     super.dispose();
