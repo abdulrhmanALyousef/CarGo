@@ -1,4 +1,5 @@
 import { onCall, HttpsError } from 'firebase-functions/v2/https';
+import { onDocumentWritten } from 'firebase-functions/v2/firestore';
 import { setGlobalOptions } from 'firebase-functions/v2';
 import { defineSecret } from 'firebase-functions/params';
 import * as admin from 'firebase-admin';
@@ -541,6 +542,256 @@ export const verifySignupOtp = onCall(async (request) => {
 
   return { success: true };
 });
+
+// ── onBookingCompleted ────────────────────────────────────────────────────────
+//
+// Firestore trigger: fires whenever a booking document is written.
+// When the booking status transitions TO 'completed', credits the car owner's
+// wallet with 90% of the booking total and records the platform fee.
+// A walletSettled flag prevents duplicate credits if the document is re-written.
+
+export const onBookingCompleted = onDocumentWritten(
+  'bookings/{bookingId}',
+  async (event) => {
+    const before = event.data?.before?.data();
+    const after  = event.data?.after?.data();
+
+    if (!after) return; // document deleted — nothing to do
+
+    const prevStatus = (before?.status ?? '') as string;
+    const newStatus  = (after.status  ?? '') as string;
+
+    // Only act on the transition → 'completed'
+    if (newStatus !== 'completed' || prevStatus === 'completed') return;
+
+    // Idempotency guard — do not credit twice
+    if (after.walletSettled === true) return;
+
+    const ownerId: string = after.ownerId ?? '';
+    const bookingId: string = event.params.bookingId;
+    const bookingTotal: number =
+      (after.totalPrice ?? after.totalAmount ?? 0) as number;
+
+    if (!ownerId || bookingTotal <= 0) {
+      console.warn('[onBookingCompleted] Missing ownerId or totalPrice for', bookingId);
+      return;
+    }
+
+    const platformFeeRate = 0.10;
+    const ownerShare  = bookingTotal * (1 - platformFeeRate);
+    const platformFee = bookingTotal * platformFeeRate;
+
+    const walletRef  = db.collection('wallets').doc(ownerId);
+    const bookingRef = db.collection('bookings').doc(bookingId);
+
+    try {
+      await db.runTransaction(async (txn) => {
+        const [walletSnap, bookingSnap] = await Promise.all([
+          txn.get(walletRef),
+          txn.get(bookingRef),
+        ]);
+
+        // Double-check inside transaction to avoid race conditions
+        if (bookingSnap.data()?.walletSettled === true) return;
+
+        if (walletSnap.exists) {
+          txn.update(walletRef, {
+            availableBalance:  admin.firestore.FieldValue.increment(ownerShare),
+            totalEarnings:     admin.firestore.FieldValue.increment(ownerShare),
+            thisMonthRevenue:  admin.firestore.FieldValue.increment(ownerShare),
+            updatedAt:         admin.firestore.FieldValue.serverTimestamp(),
+          });
+        } else {
+          txn.set(walletRef, {
+            ownerId,
+            availableBalance: ownerShare,
+            pendingBalance:   0,
+            totalEarnings:    ownerShare,
+            thisMonthRevenue: ownerShare,
+            updatedAt:        admin.firestore.FieldValue.serverTimestamp(),
+          });
+        }
+
+        // Mark booking settled + store fee breakdown for earnings screens
+        txn.update(bookingRef, {
+          walletSettled: true,
+          settledAt:     admin.firestore.FieldValue.serverTimestamp(),
+          platformFee,
+          ownerEarning:  ownerShare,
+        });
+
+        // Log payout transaction
+        const txnRef = db.collection('transactions').doc();
+        txn.set(txnRef, {
+          ownerId,
+          bookingId,
+          amount:      ownerShare,
+          platformFee,
+          type:        'booking_payout',
+          status:      'completed',
+          createdAt:   admin.firestore.FieldValue.serverTimestamp(),
+        });
+
+        // Accumulate platform-level revenue stats
+        const statsRef = db.collection('platform_stats').doc('revenue');
+        txn.set(statsRef, {
+          totalRevenue:      admin.firestore.FieldValue.increment(bookingTotal),
+          platformRevenue:   admin.firestore.FieldValue.increment(platformFee),
+          ownerPayouts:      admin.firestore.FieldValue.increment(ownerShare),
+          completedBookings: admin.firestore.FieldValue.increment(1),
+          updatedAt:         admin.firestore.FieldValue.serverTimestamp(),
+        }, { merge: true });
+      });
+
+      console.log(`[onBookingCompleted] Credited owner ${ownerId} SAR ${ownerShare.toFixed(2)} for booking ${bookingId}`);
+    } catch (err) {
+      console.error('[onBookingCompleted] transaction failed:', err);
+    }
+  }
+);
+
+// ── dayNum ────────────────────────────────────────────────────────────────────
+//
+// Converts a Date to a whole-day integer (days since Unix epoch).
+// All booking dates in this app are stored as midnight local time, so applying
+// the same arithmetic to every date produces consistent comparisons regardless
+// of UTC offset.
+
+function dayNum(d: Date): number {
+  return Math.floor(d.getTime() / 86_400_000);
+}
+
+// ── hasRemainingFreeDays ──────────────────────────────────────────────────────
+//
+// Returns true if there is at least one calendar day within the car's
+// [availableFrom, availableTo] window that is NOT covered by a confirmed,
+// in_trip, or completed booking.  This is the authoritative check used to
+// decide whether a car should return to 'ready_for_rental' (free days remain)
+// or be marked 'availability_ended' (every day is accounted for).
+//
+// The check is intentionally independent of today's date — a booking that
+// covers the FULL availability range makes the car unavailable regardless of
+// when it completed.
+
+async function hasRemainingFreeDays(
+  carId: string,
+  availableFrom: Date,
+  availableTo: Date
+): Promise<boolean> {
+  const fromDay = dayNum(availableFrom);
+  const toDay   = dayNum(availableTo);
+  if (fromDay > toDay) return false;
+
+  // Collect every day consumed by a confirmed, in_trip, or completed booking.
+  const usedSnap = await db.collection('bookings')
+    .where('carId', '==', carId)
+    .where('status', 'in', ['confirmed', 'in_trip', 'completed'])
+    .get();
+
+  const covered = new Set<number>();
+  for (const doc of usedSnap.docs) {
+    const d = doc.data();
+    const startRaw = d.startDate;
+    const endRaw   = d.endDate;
+    if (!startRaw || !endRaw) continue;
+    const start: Date = startRaw instanceof admin.firestore.Timestamp
+      ? startRaw.toDate() : new Date(startRaw as string);
+    const end: Date = endRaw instanceof admin.firestore.Timestamp
+      ? endRaw.toDate() : new Date(endRaw as string);
+    for (let day = dayNum(start); day <= dayNum(end); day++) {
+      covered.add(day);
+    }
+  }
+
+  // Return true as soon as we find any uncovered day in the window.
+  for (let day = fromDay; day <= toDay; day++) {
+    if (!covered.has(day)) return true;
+  }
+  return false; // every day in the window is covered
+}
+
+// ── onBookingCarStateSync ─────────────────────────────────────────────────────
+//
+// Firestore trigger: fires on every booking write.
+// Keeps car hubStatus in sync with booking lifecycle so the correct state is
+// always visible in Explore and MyCars — even if the Flutter client's update fails.
+//
+//   confirmed  → car: 'reserved'           (paid booking locked in)
+//   in_trip    → car: 'in_trip'            (employee confirmed pickup)
+//   cancelled  → car: 'ready_for_rental'   if free dates remain in the window
+//              → car: 'availability_ended' if all dates are consumed
+//   completed  → same logic as cancelled
+
+export const onBookingCarStateSync = onDocumentWritten(
+  'bookings/{bookingId}',
+  async (event) => {
+    const before = event.data?.before?.data();
+    const after  = event.data?.after?.data();
+    if (!after) return; // document deleted
+
+    const prevStatus = (before?.status ?? '') as string;
+    const newStatus  = (after.status  ?? '') as string;
+    if (prevStatus === newStatus) return; // no status change — nothing to do
+
+    const carId = (after.carId ?? '') as string;
+    if (!carId) return;
+
+    const carRef = db.collection('cars').doc(carId);
+
+    try {
+      if (newStatus === 'confirmed') {
+        await carRef.update({ hubStatus: 'reserved', status: 'reserved', available: false });
+        console.log(`[onBookingCarStateSync] car ${carId} → reserved`);
+        return;
+      }
+
+      if (newStatus === 'in_trip') {
+        await carRef.update({ hubStatus: 'in_trip', status: 'in_trip', available: false });
+        console.log(`[onBookingCarStateSync] car ${carId} → in_trip`);
+        return;
+      }
+
+      if (newStatus === 'cancelled' || newStatus === 'completed') {
+        // Revert car only if no other active (confirmed/in_trip) bookings remain.
+        const remaining = await db.collection('bookings')
+          .where('carId', '==', carId)
+          .where('status', 'in', ['confirmed', 'in_trip'])
+          .get();
+        if (remaining.empty) {
+          const carSnap  = await carRef.get();
+          const carData  = carSnap.data();
+          const fromRaw  = carData?.availableFrom;
+          const toRaw    = carData?.availableTo;
+
+          let newHubStatus = 'ready_for_rental';
+
+          if (fromRaw && toRaw) {
+            const availableFrom: Date = fromRaw instanceof admin.firestore.Timestamp
+              ? fromRaw.toDate() : new Date(fromRaw as string);
+            const availableTo: Date = toRaw instanceof admin.firestore.Timestamp
+              ? toRaw.toDate() : new Date(toRaw as string);
+
+            const freeRemain = await hasRemainingFreeDays(carId, availableFrom, availableTo);
+            if (!freeRemain) {
+              newHubStatus = 'availability_ended';
+            }
+          }
+
+          await carRef.update({
+            hubStatus: newHubStatus,
+            status: newHubStatus,
+            available: newHubStatus === 'ready_for_rental',
+          });
+          console.log(`[onBookingCarStateSync] car ${carId} → ${newHubStatus} (no active bookings)`);
+        } else {
+          console.log(`[onBookingCarStateSync] car ${carId} keeps reserved — ${remaining.size} active booking(s) remain`);
+        }
+      }
+    } catch (err) {
+      console.error('[onBookingCarStateSync] error updating car:', err);
+    }
+  }
+);
 
 // ── createSetupIntent ─────────────────────────────────────────────────────────
 //

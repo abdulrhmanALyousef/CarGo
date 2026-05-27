@@ -1,8 +1,10 @@
 import 'dart:io';
+import 'package:flutter/foundation.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 import 'package:cloud_functions/cloud_functions.dart';
+import 'package:cargo/models/wallet_model.dart';
 
 class FirebaseService {
   static final FirebaseService _instance = FirebaseService._internal();
@@ -47,10 +49,10 @@ class FirebaseService {
       }
       return user;
     } on FirebaseAuthException catch (e) {
-      print('Sign Up Error: ${e.message}');
+      debugPrint('Sign Up Error: ${e.message}');
       rethrow;
     } catch (e) {
-      print('Unexpected Error during Sign Up: $e');
+      debugPrint('Unexpected Error during Sign Up: $e');
       rethrow;
     }
   }
@@ -68,10 +70,10 @@ class FirebaseService {
       );
       return credential.user;
     } on FirebaseAuthException catch (e) {
-      print('Login Error: ${e.message}');
+      debugPrint('Login Error: ${e.message}');
       rethrow;
     } catch (e) {
-      print('Unexpected Error during Login: $e');
+      debugPrint('Unexpected Error during Login: $e');
       rethrow;
     }
   }
@@ -82,7 +84,7 @@ class FirebaseService {
     try {
       await _auth.signOut();
     } catch (e) {
-      print('Logout Error: $e');
+      debugPrint('Logout Error: $e');
       rethrow;
     }
   }
@@ -320,5 +322,183 @@ class FirebaseService {
       result.addAll(snap.docs.map((d) => {'id': d.id, ...d.data()}));
     }
     return result;
+  }
+
+  // ── Wallet ────────────────────────────────────────────────────────────────
+
+  Stream<WalletModel> streamWallet(String ownerId) {
+    return _firestore
+        .collection('wallets')
+        .doc(ownerId)
+        .snapshots()
+        .map((snap) {
+      if (!snap.exists) return WalletModel.empty(ownerId);
+      return WalletModel.fromMap(snap.data()!, ownerId);
+    });
+  }
+
+  Future<WalletModel> getOrCreateWallet(String ownerId) async {
+    final ref = _firestore.collection('wallets').doc(ownerId);
+    final snap = await ref.get();
+    if (snap.exists) return WalletModel.fromMap(snap.data()!, ownerId);
+    final wallet = WalletModel.empty(ownerId);
+    await ref.set(wallet.toMap());
+    return wallet;
+  }
+
+  Future<List<TransactionModel>> getTransactions(String ownerId) async {
+    try {
+      // Single equality filter — no composite index required.
+      // Type filtering and sorting are done in memory to avoid a Firestore
+      // composite index that may not be deployed yet.
+      final snap = await _firestore
+          .collection('transactions')
+          .where('ownerId', isEqualTo: ownerId)
+          .get();
+      final docs = snap.docs
+          .where((d) => d.data()['type'] == 'booking_payout')
+          .toList()
+        ..sort((a, b) {
+          final aTs = a.data()['createdAt'];
+          final bTs = b.data()['createdAt'];
+          final aMs = aTs is Timestamp ? aTs.millisecondsSinceEpoch : 0;
+          final bMs = bTs is Timestamp ? bTs.millisecondsSinceEpoch : 0;
+          return bMs.compareTo(aMs);
+        });
+      return docs
+          .take(50)
+          .map((d) => TransactionModel.fromMap(d.data(), d.id))
+          .toList();
+    } catch (e) {
+      debugPrint('[FirebaseService] getTransactions: $e');
+      return [];
+    }
+  }
+
+  Future<List<WithdrawalModel>> getWithdrawals(String ownerId) async {
+    try {
+      final snap = await _firestore
+          .collection('payouts')
+          .where('ownerId', isEqualTo: ownerId)
+          .orderBy('createdAt', descending: true)
+          .get();
+      return snap.docs
+          .map((d) => WithdrawalModel.fromMap(d.data(), d.id))
+          .toList();
+    } catch (e) {
+      debugPrint('[FirebaseService] getWithdrawals: $e');
+      return [];
+    }
+  }
+
+  /// Atomically deducts [amount] from wallet and records a withdrawal request.
+  /// Throws if balance is insufficient.
+  Future<void> requestWithdrawal({
+    required String ownerId,
+    required double amount,
+    required String bankName,
+    required String iban,
+    required String accountHolderName,
+  }) async {
+    final walletRef = _firestore.collection('wallets').doc(ownerId);
+
+    await _firestore.runTransaction((txn) async {
+      final walletSnap = await txn.get(walletRef);
+      final currentBalance = walletSnap.exists
+          ? (walletSnap.data()?['availableBalance'] as num?)?.toDouble() ?? 0.0
+          : 0.0;
+
+      if (currentBalance < amount) throw Exception('Insufficient balance');
+
+      final payoutRef = _firestore.collection('payouts').doc();
+      txn.set(payoutRef, {
+        'ownerId': ownerId,
+        'amount': amount,
+        'bankName': bankName,
+        'iban': iban,
+        'accountHolderName': accountHolderName,
+        'status': 'pending',
+        'createdAt': FieldValue.serverTimestamp(),
+      });
+
+      if (walletSnap.exists) {
+        txn.update(walletRef, {
+          'availableBalance': FieldValue.increment(-amount),
+          'updatedAt': FieldValue.serverTimestamp(),
+        });
+      } else {
+        txn.set(walletRef, {
+          'ownerId': ownerId,
+          'availableBalance': 0.0,
+          'pendingBalance': 0.0,
+          'totalEarnings': 0.0,
+          'thisMonthRevenue': 0.0,
+          'updatedAt': FieldValue.serverTimestamp(),
+        });
+      }
+      // Withdrawal request is already recorded in the 'payouts' collection above.
+      // No separate 'transactions' entry is written here — that collection is
+      // reserved for booking payouts only, so the UI never shows a phantom
+      // Withdrawal entry in Transaction History.
+    });
+  }
+
+  /// Called when a booking transitions to 'completed'.
+  /// Credits the owner 90% of the booking total and logs a payout transaction.
+  /// A [walletSettled] guard on the booking document prevents duplicate credits.
+  Future<void> creditOwnerForBooking({
+    required String ownerId,
+    required String bookingId,
+    required double bookingTotal,
+  }) async {
+    const platformFeeRate = 0.10;
+    final ownerShare = bookingTotal * (1 - platformFeeRate);
+    final platformFee = bookingTotal * platformFeeRate;
+    final walletRef = _firestore.collection('wallets').doc(ownerId);
+    final bookingRef = _firestore.collection('bookings').doc(bookingId);
+
+    await _firestore.runTransaction((txn) async {
+      final bookingSnap = await txn.get(bookingRef);
+      // Idempotency guard — do not credit twice.
+      if (bookingSnap.data()?['walletSettled'] == true) return;
+
+      final walletSnap = await txn.get(walletRef);
+      if (walletSnap.exists) {
+        txn.update(walletRef, {
+          'availableBalance': FieldValue.increment(ownerShare),
+          'totalEarnings': FieldValue.increment(ownerShare),
+          'thisMonthRevenue': FieldValue.increment(ownerShare),
+          'updatedAt': FieldValue.serverTimestamp(),
+        });
+      } else {
+        txn.set(walletRef, {
+          'ownerId': ownerId,
+          'availableBalance': ownerShare,
+          'pendingBalance': 0.0,
+          'totalEarnings': ownerShare,
+          'thisMonthRevenue': ownerShare,
+          'updatedAt': FieldValue.serverTimestamp(),
+        });
+      }
+
+      // Mark booking as settled and store the fee breakdown.
+      txn.update(bookingRef, {
+        'walletSettled': true,
+        'settledAt': FieldValue.serverTimestamp(),
+        'platformFee': platformFee,
+        'ownerEarning': ownerShare,
+      });
+
+      final txnRef = _firestore.collection('transactions').doc();
+      txn.set(txnRef, {
+        'ownerId': ownerId,
+        'bookingId': bookingId,
+        'amount': ownerShare,
+        'platformFee': platformFee,
+        'type': 'booking_payout',
+        'status': 'completed',
+        'createdAt': FieldValue.serverTimestamp(),
+      });
+    });
   }
 }
