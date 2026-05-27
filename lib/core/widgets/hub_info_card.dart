@@ -144,9 +144,7 @@ class HubDropOffInstructionsCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final deadline = firstBookingDate != null
-        ? firstBookingDate!.subtract(const Duration(hours: 24))
-        : null;
+    final deadline = firstBookingDate?.subtract(const Duration(hours: 24));
 
     return Container(
       padding: const EdgeInsets.all(14),

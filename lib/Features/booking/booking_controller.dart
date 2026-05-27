@@ -131,7 +131,7 @@ class BookingController extends ChangeNotifier {
   bool isBooked(DateTime day) => _bookedDates.contains(_dateOnly(day));
 
   // ── Availability Loader ──────────────────────────────────────────────────
-  // Only CONFIRMED bookings lock the calendar.
+  // CONFIRMED and IN_TRIP bookings lock the calendar.
   // Pending and approved requests are visible to multiple renters
   // simultaneously and do not block date selection until payment is made.
   Future<void> loadAvailability() async {
@@ -139,7 +139,7 @@ class BookingController extends ChangeNotifier {
       final snapshot = await _firestore
           .collection('bookings')
           .where('carId', isEqualTo: car.id)
-          .where('status', isEqualTo: 'confirmed')
+          .where('status', whereIn: ['confirmed', 'in_trip'])
           .get();
 
       final booked = <DateTime>{};
@@ -277,15 +277,15 @@ class BookingController extends ChangeNotifier {
     return false;
   }
 
-  // ── Car Confirmed-Booking Overlap Check (Firestore READ) ─────────────────
-  // Only CONFIRMED bookings lock dates for a car. Pending and approved
+  // ── Car Confirmed/InTrip Overlap Check (Firestore READ) ──────────────────
+  // CONFIRMED and IN_TRIP bookings lock dates for a car. Pending and approved
   // requests from other renters do not prevent a new request from being
   // submitted — the owner decides who to accept.
   Future<bool> _hasCarConfirmedOverlap(DateTime start, DateTime end) async {
     final snapshot = await _firestore
         .collection('bookings')
         .where('carId', isEqualTo: car.id)
-        .where('status', isEqualTo: 'confirmed')
+        .where('status', whereIn: ['confirmed', 'in_trip'])
         .get();
 
     for (final doc in snapshot.docs) {
@@ -367,6 +367,7 @@ class BookingController extends ChangeNotifier {
         bookingId: docRef.id,
         userId: currentUser.uid,
         carId: car.id,
+        ownerId: car.ownerId,
         startDate: _startDate!,
         endDate: _endDate!,
         pickupTime: pickupTimeText,

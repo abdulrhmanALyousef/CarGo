@@ -27,7 +27,7 @@ class ReviewsScreen extends StatelessWidget {
           padding: const EdgeInsets.all(8.0),
           child: Container(
             decoration: BoxDecoration(
-              color: LightColors.textColor.withOpacity(0.15),
+              color: LightColors.textColor.withValues(alpha:0.15),
               shape: BoxShape.circle,
             ),
             child: IconButton(
@@ -94,7 +94,7 @@ class ReviewsScreen extends StatelessWidget {
                             '${reviews.length} ratings',
                             style: TextStyle(
                               fontSize: 13,
-                              color: LightColors.textColor.withOpacity(0.5),
+                              color: LightColors.textColor.withValues(alpha:0.5),
                             ),
                           ),
                         ],
@@ -132,7 +132,7 @@ class ReviewsScreen extends StatelessWidget {
                     'No reviews yet',
                     style: TextStyle(
                       fontSize: 14,
-                      color: LightColors.textColor.withOpacity(0.5),
+                      color: LightColors.textColor.withValues(alpha:0.5),
                     ),
                   ),
                 ),
@@ -163,7 +163,7 @@ class ReviewsScreen extends StatelessWidget {
               borderRadius: BorderRadius.circular(4),
               child: LinearProgressIndicator(
                 value: percentage,
-                backgroundColor: LightColors.textColor.withOpacity(0.1),
+                backgroundColor: LightColors.textColor.withValues(alpha:0.1),
                 valueColor: const AlwaysStoppedAnimation<Color>(LightColors.primaryColor),
                 minHeight: 6,
               ),
@@ -176,7 +176,7 @@ class ReviewsScreen extends StatelessWidget {
               '${(percentage * 100).toInt()}%',
               style: TextStyle(
                 fontSize: 12,
-                color: LightColors.textColor.withOpacity(0.5),
+                color: LightColors.textColor.withValues(alpha:0.5),
               ),
               textAlign: TextAlign.end,
             ),
@@ -199,7 +199,7 @@ class ReviewsScreen extends StatelessWidget {
         children: [
           Row(
             children: [
-              ProfileIconWidget(
+              const ProfileIconWidget(
                 size: 36,
                 imagePath: 'assets/images/manicon.png',
               ),
@@ -221,7 +221,7 @@ class ReviewsScreen extends StatelessWidget {
                         '${review.createdAt!.day}/${review.createdAt!.month}/${review.createdAt!.year}',
                         style: TextStyle(
                           fontSize: 11,
-                          color: LightColors.textColor.withOpacity(0.4),
+                          color: LightColors.textColor.withValues(alpha:0.4),
                         ),
                       ),
                   ],
@@ -244,7 +244,7 @@ class ReviewsScreen extends StatelessWidget {
               review.comment,
               style: TextStyle(
                 fontSize: 13,
-                color: LightColors.textColor.withOpacity(0.7),
+                color: LightColors.textColor.withValues(alpha:0.7),
                 height: 1.4,
               ),
             ),

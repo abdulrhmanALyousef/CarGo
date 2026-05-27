@@ -9,22 +9,24 @@ import 'package:cargo/core/widgets/profile_menu_button.dart';
 import 'package:cargo/core/theme/light_color.dart';
 import 'package:cargo/models/booking_model.dart';
 
+enum TripFilter { all, upcoming, active, past }
+
 class MyTripsScreen extends StatelessWidget {
-  const MyTripsScreen({super.key});
+  final TripFilter filter;
+  const MyTripsScreen({super.key, this.filter = TripFilter.all});
 
   @override
   Widget build(BuildContext context) {
     return ChangeNotifierProvider(
       create: (_) => MyTripsController(),
-      child: const _MyTripsBody(),
+      child: _MyTripsBody(filter: filter),
     );
   }
 }
 
-// ── Inner body — StatefulWidget so PostFrameCallback can trigger the popup ────
-
 class _MyTripsBody extends StatefulWidget {
-  const _MyTripsBody();
+  const _MyTripsBody({required this.filter});
+  final TripFilter filter;
 
   @override
   State<_MyTripsBody> createState() => _MyTripsBodyState();
@@ -35,8 +37,7 @@ class _MyTripsBodyState extends State<_MyTripsBody> {
   Widget build(BuildContext context) {
     final ctrl = context.watch<MyTripsController>();
 
-    // When a booking transitions to 'approved' via real-time update,
-    // show the payment popup after the current frame finishes.
+    // Show payment popup when booking transitions to 'approved'
     if (ctrl.newlyApprovedEntry != null) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (mounted && ctrl.newlyApprovedEntry != null) {
@@ -46,9 +47,31 @@ class _MyTripsBodyState extends State<_MyTripsBody> {
       });
     }
 
+    final title = switch (widget.filter) {
+      TripFilter.upcoming => 'Upcoming Trips',
+      TripFilter.active => 'Active Trip',
+      TripFilter.past => 'Past Trips',
+      TripFilter.all => 'My Trips',
+    };
+
+    final visibleTrips = ctrl.trips.where((e) {
+      final status = e.booking.status;
+      return switch (widget.filter) {
+        // Bookings the renter has requested or confirmed but not yet in-progress
+        TripFilter.upcoming =>
+            const {'pending', 'approved', 'confirmed'}.contains(status),
+        // Bookings currently in-trip (employee confirmed pickup)
+        TripFilter.active => status == 'in_trip',
+        // Finished bookings
+        TripFilter.past =>
+            const {'completed', 'cancelled', 'rejected'}.contains(status),
+        TripFilter.all => true,
+      };
+    }).toList();
+
     return Scaffold(
       appBar: AppBar(
-        title: const Text('My Trips'),
+        title: Text(title),
         leading: BackButton(onPressed: () => Navigator.pop(context)),
         actions: const [
           Padding(
@@ -57,11 +80,11 @@ class _MyTripsBodyState extends State<_MyTripsBody> {
           ),
         ],
       ),
-      body: _buildBody(context, ctrl),
+      body: _buildBody(context, ctrl, visibleTrips),
     );
   }
 
-  // ── Approved Payment Popup ────────────────────────────────────────────────
+  // ── Approved Payment Popup ─────────────────────────────────────────────────
   void _showApprovedDialog(BuildContext context, TripEntry entry) {
     final carName = entry.car != null
         ? '${entry.car!.brand} ${entry.car!.model}'
@@ -73,11 +96,11 @@ class _MyTripsBodyState extends State<_MyTripsBody> {
       barrierDismissible: false,
       builder: (_) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: Row(
+        title: const Row(
           children: [
-            const Icon(Icons.check_circle, color: Colors.green, size: 24),
-            const SizedBox(width: 8),
-            const Flexible(child: Text('Booking Approved!')),
+            Icon(Icons.check_circle, color: Colors.green, size: 24),
+            SizedBox(width: 8),
+            Flexible(child: Text('Booking Approved!')),
           ],
         ),
         content: Column(
@@ -91,8 +114,7 @@ class _MyTripsBodyState extends State<_MyTripsBody> {
             const SizedBox(height: 12),
             _DialogInfoRow(
               icon: Icons.calendar_today_outlined,
-              text:
-                  '${_fmt(booking.startDate)}  →  ${_fmt(booking.endDate)}',
+              text: '${_fmt(booking.startDate)}  →  ${_fmt(booking.endDate)}',
             ),
             const SizedBox(height: 6),
             _DialogInfoRow(
@@ -130,9 +152,9 @@ class _MyTripsBodyState extends State<_MyTripsBody> {
   String _fmt(DateTime d) =>
       '${d.day.toString().padLeft(2, '0')}.${d.month.toString().padLeft(2, '0')}.${d.year}';
 
-  // ── Body ──────────────────────────────────────────────────────────────────
-
-  Widget _buildBody(BuildContext context, MyTripsController ctrl) {
+  // ── Body ───────────────────────────────────────────────────────────────────
+  Widget _buildBody(BuildContext context, MyTripsController ctrl,
+      List<TripEntry> visibleTrips) {
     if (!ctrl.isAuthenticated) {
       return const Center(
         child: Text(
@@ -156,10 +178,8 @@ class _MyTripsBodyState extends State<_MyTripsBody> {
           children: [
             const Icon(Icons.error_outline, size: 48, color: Colors.red),
             const SizedBox(height: 12),
-            Text(
-              'Failed to load trips',
-              style: TextStyle(fontSize: 16, color: Colors.grey.shade600),
-            ),
+            Text('Failed to load trips',
+                style: TextStyle(fontSize: 16, color: Colors.grey.shade600)),
             const SizedBox(height: 12),
             AppButton(
               text: 'Retry',
@@ -172,22 +192,33 @@ class _MyTripsBodyState extends State<_MyTripsBody> {
       );
     }
 
-    if (ctrl.trips.isEmpty) {
-      return const Center(
+    if (visibleTrips.isEmpty) {
+      final emptyMsg = switch (widget.filter) {
+        TripFilter.upcoming => 'No upcoming trips.',
+        TripFilter.active => 'No active trip.',
+        TripFilter.past => 'No past trips yet.',
+        TripFilter.all => 'No trips yet.',
+      };
+      final emptySub = switch (widget.filter) {
+        TripFilter.upcoming => 'Your confirmed bookings will appear here.',
+        TripFilter.active =>
+            'Your current rental will appear here once picked up.',
+        TripFilter.past => 'Completed trips will appear here.',
+        TripFilter.all => 'Your booking requests will appear here.',
+      };
+      return Center(
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(Icons.directions_car_outlined, size: 64, color: Colors.grey),
-            SizedBox(height: 16),
-            Text(
-              'No trips yet',
-              style: TextStyle(fontSize: 18, color: Colors.grey),
-            ),
-            SizedBox(height: 8),
-            Text(
-              'Your booking requests will appear here.',
-              style: TextStyle(fontSize: 14, color: Colors.grey),
-            ),
+            const Icon(Icons.directions_car_outlined,
+                size: 64, color: Colors.grey),
+            const SizedBox(height: 16),
+            Text(emptyMsg,
+                style: const TextStyle(fontSize: 18, color: Colors.grey)),
+            const SizedBox(height: 8),
+            Text(emptySub,
+                style: const TextStyle(fontSize: 14, color: Colors.grey),
+                textAlign: TextAlign.center),
           ],
         ),
       );
@@ -198,21 +229,19 @@ class _MyTripsBodyState extends State<_MyTripsBody> {
       onRefresh: () => context.read<MyTripsController>().fetchTrips(),
       child: ListView.separated(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
-        itemCount: ctrl.trips.length,
+        itemCount: visibleTrips.length,
         separatorBuilder: (_, __) => const SizedBox(height: 12),
-        itemBuilder: (context, index) {
-          return _TripCard(entry: ctrl.trips[index]);
-        },
+        itemBuilder: (context, index) =>
+            _TripCard(entry: visibleTrips[index]),
       ),
     );
   }
 }
 
-// ── Trip Card ─────────────────────────────────────────────────────────────────
+// ── Trip Card ──────────────────────────────────────────────────────────────────
 
 class _TripCard extends StatelessWidget {
   const _TripCard({required this.entry});
-
   final TripEntry entry;
 
   @override
@@ -221,19 +250,27 @@ class _TripCard extends StatelessWidget {
     final booking = entry.booking;
     final car = entry.car;
     final isProcessing = ctrl.actionBookingId == booking.bookingId;
+    final status = booking.status;
 
     final imageUrl =
         (car != null && car.images.isNotEmpty) ? car.images.first : '';
-    final carName =
-        car != null ? '${car.brand} ${car.model}' : 'Unknown Car';
+    final carName = car != null ? '${car.brand} ${car.model}' : 'Unknown Car';
+
+    final isInTrip = status == 'in_trip';
+    final isOverdue = isInTrip && booking.endDate.isBefore(DateTime.now());
 
     return Card(
       elevation: 2,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(12),
+        side: isOverdue
+            ? const BorderSide(color: Colors.red, width: 1.5)
+            : BorderSide.none,
+      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // ── Car image ──────────────────────────────────────────────────────
+          // ── Car image ────────────────────────────────────────────────────
           ClipRRect(
             borderRadius:
                 const BorderRadius.vertical(top: Radius.circular(12)),
@@ -249,13 +286,12 @@ class _TripCard extends StatelessWidget {
                 : _imagePlaceholder(),
           ),
 
-          // ── Details ────────────────────────────────────────────────────────
           Padding(
             padding: const EdgeInsets.all(14),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // Car name + status badge
+                // ── Car name + status badge ──────────────────────────────
                 Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -270,7 +306,7 @@ class _TripCard extends StatelessWidget {
                       ),
                     ),
                     const SizedBox(width: 8),
-                    _StatusBadge(status: booking.status),
+                    _StatusBadge(status: status),
                   ],
                 ),
 
@@ -284,10 +320,25 @@ class _TripCard extends StatelessWidget {
 
                 const SizedBox(height: 6),
 
-                _InfoRow(
-                  icon: Icons.access_time_rounded,
-                  text: 'Pickup at ${booking.pickupTime}',
-                ),
+                if (!isInTrip)
+                  _InfoRow(
+                    icon: Icons.access_time_rounded,
+                    text: 'Pickup at ${booking.pickupTime}',
+                  ),
+
+                if (isInTrip) ...[
+                  _InfoRow(
+                    icon: Icons.location_on_outlined,
+                    text: 'Return vehicle to CarGo Hub',
+                  ),
+                  const SizedBox(height: 6),
+                  _InfoRow(
+                    icon: Icons.event_available_rounded,
+                    text:
+                        'Due back: ${_fmt(booking.endDate)}${isOverdue ? ' (OVERDUE)' : ''}',
+                    color: isOverdue ? Colors.red.shade700 : null,
+                  ),
+                ],
 
                 const SizedBox(height: 6),
 
@@ -297,83 +348,87 @@ class _TripCard extends StatelessWidget {
                 ),
 
                 const SizedBox(height: 8),
-                // Confirmed trips show the full map card; others show compact.
-                if (booking.status == 'confirmed')
+
+                // ── Hub info / map ────────────────────────────────────────
+                if (status == 'confirmed' || status == 'in_trip')
                   const HubMapCard()
                 else
                   const HubInfoCard(compact: true),
 
-                // ── Owner-approval hint (pending only) ────────────────────
-                if (booking.status == 'pending') ...[
+                // ── Status banners ────────────────────────────────────────
+                if (status == 'pending') ...[
                   const SizedBox(height: 10),
-                  Container(
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
-                    decoration: BoxDecoration(
-                      color: Colors.orange.shade50,
-                      borderRadius: BorderRadius.circular(8),
-                      border: Border.all(color: Colors.orange.shade200),
-                    ),
-                    child: Row(
-                      children: [
-                        Icon(Icons.hourglass_top_rounded,
-                            size: 14, color: Colors.orange.shade700),
-                        const SizedBox(width: 6),
-                        Expanded(
-                          child: Text(
-                            'Waiting for the owner to approve your request.',
-                            style: TextStyle(
-                                fontSize: 12, color: Colors.orange.shade800),
-                          ),
-                        ),
-                      ],
-                    ),
+                  _infoBanner(
+                    icon: Icons.hourglass_top_rounded,
+                    text: 'Waiting for the owner to approve your request.',
+                    bgColor: Colors.orange.shade50,
+                    borderColor: Colors.orange.shade200,
+                    textColor: Colors.orange.shade800,
+                    iconColor: Colors.orange.shade700,
                   ),
                 ],
 
-                // ── Payment prompt (approved only) ────────────────────────
-                if (booking.status == 'approved') ...[
+                if (status == 'approved') ...[
                   const SizedBox(height: 10),
-                  Container(
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
-                    decoration: BoxDecoration(
-                      color: Colors.blue.shade50,
-                      borderRadius: BorderRadius.circular(8),
-                      border: Border.all(color: Colors.blue.shade200),
-                    ),
-                    child: Row(
-                      children: [
-                        Icon(Icons.check_circle_outline,
-                            size: 14, color: Colors.blue.shade700),
-                        const SizedBox(width: 6),
-                        Expanded(
-                          child: Text(
-                            'Owner approved! Complete payment to confirm.',
-                            style: TextStyle(
-                                fontSize: 12, color: Colors.blue.shade800),
-                          ),
-                        ),
-                      ],
-                    ),
+                  _infoBanner(
+                    icon: Icons.check_circle_outline,
+                    text: 'Owner approved! Complete payment to confirm.',
+                    bgColor: Colors.blue.shade50,
+                    borderColor: Colors.blue.shade200,
+                    textColor: Colors.blue.shade800,
+                    iconColor: Colors.blue.shade700,
+                  ),
+                ],
+
+                if (isInTrip) ...[
+                  const SizedBox(height: 10),
+                  _infoBanner(
+                    icon: isOverdue
+                        ? Icons.warning_amber_rounded
+                        : Icons.directions_car_rounded,
+                    text: isOverdue
+                        ? 'Your rental has passed its return date. Please return the vehicle to the hub immediately.'
+                        : 'Your rental is active. Return the vehicle to CarGo Hub by ${_fmt(booking.endDate)}.',
+                    bgColor: isOverdue
+                        ? Colors.red.shade50
+                        : Colors.teal.shade50,
+                    borderColor: isOverdue
+                        ? Colors.red.shade200
+                        : Colors.teal.shade200,
+                    textColor: isOverdue
+                        ? Colors.red.shade800
+                        : Colors.teal.shade800,
+                    iconColor: isOverdue
+                        ? Colors.red.shade700
+                        : Colors.teal.shade700,
+                  ),
+                ],
+
+                if (status == 'completed') ...[
+                  const SizedBox(height: 10),
+                  _infoBanner(
+                    icon: Icons.check_circle_rounded,
+                    text: 'Trip completed. Thank you for using CarGo!',
+                    bgColor: Colors.green.shade50,
+                    borderColor: Colors.green.shade200,
+                    textColor: Colors.green.shade800,
+                    iconColor: Colors.green.shade700,
                   ),
                 ],
 
                 const SizedBox(height: 12),
 
-                // ── Chat with Owner ───────────────────────────────────────
-                if (entry.car != null) ...[
+                // ── Chat with Owner ──────────────────────────────────────
+                if (entry.car != null && status != 'cancelled' &&
+                    status != 'rejected') ...[
                   AppButton(
                     text: 'Chat with Owner',
                     onTap: () => context
                         .read<MyTripsController>()
                         .openChatWithOwner(entry, context),
                     outlined: true,
-                    icon: const Icon(
-                      Icons.chat_bubble_outline,
-                      size: 16,
-                      color: LightColors.primaryColor,
-                    ),
+                    icon: const Icon(Icons.chat_bubble_outline,
+                        size: 16, color: LightColors.primaryColor),
                     color: LightColors.primaryColor,
                     textColor: LightColors.primaryColor,
                     borderRadius: 10,
@@ -413,7 +468,6 @@ class _TripCard extends StatelessWidget {
 
     return Row(
       children: [
-        // ── Pay Now (approved only) ─────────────────────────────────────
         if (canPay) ...[
           Expanded(
             child: AppButton(
@@ -429,8 +483,6 @@ class _TripCard extends StatelessWidget {
           ),
           const SizedBox(width: 10),
         ],
-
-        // ── Cancel (pending or approved) ────────────────────────────────
         if (canCancel)
           Expanded(
             child: AppButton(
@@ -439,7 +491,8 @@ class _TripCard extends StatelessWidget {
               color: Colors.red,
               textColor: Colors.red,
               outlined: true,
-              icon: const Icon(Icons.cancel_outlined, size: 16, color: Colors.red),
+              icon: const Icon(Icons.cancel_outlined,
+                  size: 16, color: Colors.red),
               borderRadius: 10,
               height: 44,
               fontSize: 14,
@@ -477,16 +530,41 @@ class _TripCard extends StatelessWidget {
     });
   }
 
+  Widget _infoBanner({
+    required IconData icon,
+    required String text,
+    required Color bgColor,
+    required Color borderColor,
+    required Color textColor,
+    required Color iconColor,
+  }) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+      decoration: BoxDecoration(
+        color: bgColor,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: borderColor),
+      ),
+      child: Row(
+        children: [
+          Icon(icon, size: 14, color: iconColor),
+          const SizedBox(width: 6),
+          Expanded(
+            child: Text(text,
+                style: TextStyle(fontSize: 12, color: textColor)),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _imagePlaceholder() {
     return Container(
       height: 160,
       width: double.infinity,
       color: Colors.grey.shade200,
-      child: const Icon(
-        Icons.directions_car_outlined,
-        size: 48,
-        color: Colors.grey,
-      ),
+      child: const Icon(Icons.directions_car_outlined,
+          size: 48, color: Colors.grey),
     );
   }
 
@@ -494,11 +572,10 @@ class _TripCard extends StatelessWidget {
       '${d.day.toString().padLeft(2, '0')}.${d.month.toString().padLeft(2, '0')}.${d.year}';
 }
 
-// ── Status Badge ──────────────────────────────────────────────────────────────
+// ── Status Badge ───────────────────────────────────────────────────────────────
 
 class _StatusBadge extends StatelessWidget {
   const _StatusBadge({required this.status});
-
   final String status;
 
   @override
@@ -506,7 +583,10 @@ class _StatusBadge extends StatelessWidget {
     final (color, label) = switch (status) {
       'confirmed' => (Colors.green.shade600, 'Confirmed'),
       'approved' => (Colors.blue.shade600, 'Approved'),
+      'in_trip' => (Colors.teal.shade600, 'In Trip'),
+      'completed' => (Colors.grey.shade600, 'Completed'),
       'cancelled' => (Colors.red.shade600, 'Cancelled'),
+      'rejected' => (Colors.red.shade600, 'Rejected'),
       _ => (Colors.orange.shade700, 'Pending'),
     };
 
@@ -520,45 +600,37 @@ class _StatusBadge extends StatelessWidget {
       child: Text(
         label,
         style: TextStyle(
-          fontSize: 12,
-          fontWeight: FontWeight.w600,
-          color: color,
-        ),
+            fontSize: 12, fontWeight: FontWeight.w600, color: color),
       ),
     );
   }
 }
 
-// ── Info Row ──────────────────────────────────────────────────────────────────
+// ── Info Row ───────────────────────────────────────────────────────────────────
 
 class _InfoRow extends StatelessWidget {
-  const _InfoRow({required this.icon, required this.text});
-
+  const _InfoRow({required this.icon, required this.text, this.color});
   final IconData icon;
   final String text;
+  final Color? color;
 
   @override
   Widget build(BuildContext context) {
+    final c = color ?? Colors.grey.shade700;
     return Row(
       children: [
-        Icon(icon, size: 16, color: Colors.grey.shade600),
+        Icon(icon, size: 16, color: c),
         const SizedBox(width: 6),
-        Expanded(
-          child: Text(
-            text,
-            style: TextStyle(fontSize: 13, color: Colors.grey.shade700),
-          ),
-        ),
+        Expanded(child: Text(text, style: TextStyle(fontSize: 13, color: c))),
       ],
     );
   }
 }
 
-// ── Dialog Info Row ───────────────────────────────────────────────────────────
+// ── Dialog Info Row ────────────────────────────────────────────────────────────
 
 class _DialogInfoRow extends StatelessWidget {
   const _DialogInfoRow({required this.icon, required this.text});
-
   final IconData icon;
   final String text;
 
@@ -568,9 +640,7 @@ class _DialogInfoRow extends StatelessWidget {
       children: [
         Icon(icon, size: 14, color: LightColors.primaryColor),
         const SizedBox(width: 6),
-        Expanded(
-          child: Text(text, style: const TextStyle(fontSize: 13)),
-        ),
+        Expanded(child: Text(text, style: const TextStyle(fontSize: 13))),
       ],
     );
   }

@@ -5,29 +5,29 @@ import 'package:cargo/core/theme/light_color.dart';
 ThemeData lightTheme = ThemeData(
   useMaterial3: true,
   brightness: Brightness.light,
-  colorScheme: ColorScheme.light(
+  colorScheme: const ColorScheme.light(
     primary: LightColors.primaryColor,
   ),
-  scaffoldBackgroundColor: Color(0xFFf5f5f5),
+  scaffoldBackgroundColor: const Color(0xFFf5f5f5),
   primaryColor: LightColors.primaryColor,
   appBarTheme: AppBarTheme(
-    backgroundColor: Color(0xFFFFFFFF),
+    backgroundColor: const Color(0xFFFFFFFF),
     titleTextStyle: TextStyle(fontSize: AppSizes.sp16, fontWeight: FontWeight.w700, color: LightColors.textColor),
   ),
-  progressIndicatorTheme: ProgressIndicatorThemeData(color: Colors.white),
+  progressIndicatorTheme: const ProgressIndicatorThemeData(color: Colors.white),
 
   elevatedButtonTheme: ElevatedButtonThemeData(
     style: ElevatedButton.styleFrom(
       backgroundColor: LightColors.primaryColor,
       foregroundColor: LightColors.textColor,
       textStyle: TextStyle(fontSize: AppSizes.sp16, fontWeight: FontWeight.w400, color: LightColors.textColor),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.zero),
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.zero),
       minimumSize: Size.fromHeight(AppSizes.h52),
     ),
   ),
   textButtonTheme: TextButtonThemeData(style: TextButton.styleFrom(foregroundColor: LightColors.textColor)),
 
-  inputDecorationTheme: InputDecorationTheme(
+  inputDecorationTheme: const InputDecorationTheme(
     hintStyle: TextStyle(color: LightColors.textColor),
     filled: true,
     fillColor: Color(0xFFFFFFFF),
@@ -50,8 +50,8 @@ ThemeData lightTheme = ThemeData(
     ),
   ),
 
-  bottomNavigationBarTheme: BottomNavigationBarThemeData(
-    backgroundColor: const Color(0xFFB5B3B3),
+  bottomNavigationBarTheme: const BottomNavigationBarThemeData(
+    backgroundColor: Color(0xFFB5B3B3),
     type: BottomNavigationBarType.fixed,
     selectedItemColor: LightColors.primaryColor,
     unselectedItemColor: LightColors.textColor,

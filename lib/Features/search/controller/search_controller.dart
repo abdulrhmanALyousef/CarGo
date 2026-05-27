@@ -14,18 +14,20 @@ class SearchCarController extends ChangeNotifier {
 
   // ── Price Range ──────────────────────────────────────────────────────
   static const double minPrice = 0;
-  static const double maxPrice = 500;
-  RangeValues _priceRange = const RangeValues(50, 300);
+  static const double maxPrice = 2000;
+  RangeValues _priceRange = const RangeValues(minPrice, maxPrice);
   RangeValues get priceRange => _priceRange;
 
-  // ── Car Types ────────────────────────────────────────────────────────
+  // ── Car Types — must match categories used in AddCarController ──────
   final List<String> carTypes = [
-    'Family',
-    'Sport',
-    'Off-Road',
+    'Sedan',
     'SUV',
+    'Hatchback',
+    'Coupe',
+    'Pickup',
+    'Van',
     'Luxury',
-    'Economic',
+    'Convertible',
   ];
   final Set<String> _selectedTypes = {};
   Set<String> get selectedTypes => _selectedTypes;
@@ -73,7 +75,11 @@ class SearchCarController extends ChangeNotifier {
     try {
       final snapshot = await _firestore.collection('cars').get();
       final currentUid = FirebaseAuth.instance.currentUser?.uid;
-      const visibleStatuses = {'at_hub', 'available'};
+      // Only show cars that are ready for booking. 'at_hub' means verified but
+      // not yet listed — it must not appear in search results.
+      const visibleStatuses = {
+        'available', 'ready_for_rental', 'reserved',
+      };
       _allCars = snapshot.docs
           .map((doc) {
             final data = doc.data();
@@ -125,26 +131,19 @@ class SearchCarController extends ChangeNotifier {
         return false;
       }
 
-      // Text search – match against brand, model, or location
+      // Text search — match against brand, model, category, city, hub location
       if (_searchQuery.isNotEmpty) {
         final q = _searchQuery.toLowerCase();
         final haystack =
-            '${car.brand} ${car.model} ${car.location}'.toLowerCase();
+            '${car.brand} ${car.model} ${car.category} ${car.city} ${car.location} ${car.hubLocation}'
+                .toLowerCase();
         if (!haystack.contains(q)) return false;
       }
 
-      // Car type filter (transmission field used as "type" proxy)
-      // If nothing selected → show all
-      if (_selectedTypes.isNotEmpty) {
-        // Match against brand (Family/Sport/SUV etc.) stored in overview or
-        // any field. Adjust as needed for your Firestore schema.
-        final matchesType = _selectedTypes.any((type) {
-          final t = type.toLowerCase();
-          return car.brand.toLowerCase().contains(t) ||
-              car.overview.toLowerCase().contains(t) ||
-              car.transmission.toLowerCase().contains(t);
-        });
-        if (!matchesType) return false;
+      // Car type filter — matches against the category field stored in Firestore
+      if (_selectedTypes.isNotEmpty &&
+          !_selectedTypes.contains(car.category)) {
+        return false;
       }
 
       return true;
@@ -152,7 +151,7 @@ class SearchCarController extends ChangeNotifier {
   }
 
   void clearFilters() {
-    _priceRange = const RangeValues(50, 300);
+    _priceRange = const RangeValues(minPrice, maxPrice);
     _selectedTypes.clear();
     searchTextController.clear();
     _searchQuery = '';

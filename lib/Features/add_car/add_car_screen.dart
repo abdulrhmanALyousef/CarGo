@@ -44,13 +44,13 @@ class _AddCarBody extends StatelessWidget {
             const SizedBox(height: 20),
 
             // ── Images ────────────────────────────────────────────────────
-            _SectionTitle('Car Photos'),
+            const _SectionTitle('Car Photos'),
             const SizedBox(height: 10),
             _ImagePicker(),
             const SizedBox(height: 20),
 
             // ── Vehicle Info ───────────────────────────────────────────────
-            _SectionTitle('Vehicle Information'),
+            const _SectionTitle('Vehicle Information'),
             const SizedBox(height: 10),
             _FormCard(
               child: Column(
@@ -105,7 +105,7 @@ class _AddCarBody extends StatelessWidget {
             const SizedBox(height: 20),
 
             // ── Specs ──────────────────────────────────────────────────────
-            _SectionTitle('Specifications'),
+            const _SectionTitle('Specifications'),
             const SizedBox(height: 10),
             _FormCard(
               child: Column(
@@ -167,7 +167,7 @@ class _AddCarBody extends StatelessWidget {
             const SizedBox(height: 20),
 
             // ── Pricing & Location ─────────────────────────────────────────
-            _SectionTitle('Pricing & Location'),
+            const _SectionTitle('Pricing & Location'),
             const SizedBox(height: 10),
             _FormCard(
               child: Column(
@@ -210,12 +210,12 @@ class _AddCarBody extends StatelessWidget {
             const SizedBox(height: 20),
 
             // ── Availability ───────────────────────────────────────────────
-            _SectionTitle('Availability Period'),
+            const _SectionTitle('Availability Period'),
             const SizedBox(height: 4),
             Text(
               'Define when your car will be available at the hub for rental.',
               style: TextStyle(
-                  fontSize: 12, color: LightColors.textColor.withOpacity(0.5)),
+                  fontSize: 12, color: LightColors.textColor.withValues(alpha:0.5)),
             ),
             const SizedBox(height: 10),
             _FormCard(
@@ -252,7 +252,7 @@ class _AddCarBody extends StatelessWidget {
             const SizedBox(height: 20),
 
             // ── Description ────────────────────────────────────────────────
-            _SectionTitle('Description (optional)'),
+            const _SectionTitle('Description (optional)'),
             const SizedBox(height: 10),
             _FormCard(
               child: TextField(
@@ -263,7 +263,7 @@ class _AddCarBody extends StatelessWidget {
                       'Describe your car — features, condition, anything renters should know...',
                   hintStyle: TextStyle(
                     fontSize: 13,
-                    color: LightColors.textColor.withOpacity(0.4),
+                    color: LightColors.textColor.withValues(alpha:0.4),
                   ),
                   border: InputBorder.none,
                 ),
@@ -364,7 +364,7 @@ class _ImagePicker extends StatelessWidget {
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    Icon(Icons.add_photo_alternate_outlined,
+                    const Icon(Icons.add_photo_alternate_outlined,
                         color: LightColors.primaryColor, size: 32),
                     const SizedBox(height: 6),
                     Text(
@@ -547,7 +547,7 @@ class _LabeledField extends StatelessWidget {
           style: TextStyle(
             fontSize: 11,
             fontWeight: FontWeight.w600,
-            color: LightColors.textColor.withOpacity(0.5),
+            color: LightColors.textColor.withValues(alpha:0.5),
             letterSpacing: 0.3,
           ),
         ),
@@ -583,7 +583,7 @@ class _TextField extends StatelessWidget {
         hintText: hint,
         hintStyle: TextStyle(
           fontSize: 13,
-          color: LightColors.textColor.withOpacity(0.35),
+          color: LightColors.textColor.withValues(alpha:0.35),
         ),
         contentPadding:
             const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
@@ -678,7 +678,7 @@ class _DateButton extends StatelessWidget {
                 fontSize: 13,
                 fontWeight: FontWeight.w500,
                 color: isPlaceholder
-                    ? LightColors.textColor.withOpacity(0.4)
+                    ? LightColors.textColor.withValues(alpha:0.4)
                     : LightColors.textColor,
               ),
             ),

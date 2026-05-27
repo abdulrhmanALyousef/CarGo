@@ -52,7 +52,7 @@ class ChatsController extends ChangeNotifier {
       return;
     }
 
-    print('[ChatsController] starting stream for uid=$uid');
+    debugPrint('[ChatsController] starting stream for uid=$uid');
 
     // ⚠️ This query requires a composite index in Firestore:
     //    collection: chats | field: participants (Array) + lastTimestamp (Desc)
@@ -73,7 +73,7 @@ class ChatsController extends ChangeNotifier {
     QuerySnapshot<Map<String, dynamic>> snap,
     String currentUserId,
   ) async {
-    print('[ChatsController] received ${snap.docs.length} chat(s)');
+    debugPrint('[ChatsController] received ${snap.docs.length} chat(s)');
 
     final result = <ChatListItem>[];
 
@@ -117,10 +117,10 @@ class ChatsController extends ChangeNotifier {
       final data = await FirebaseService().getUserData(uid: uid);
       final name = data?['fullName'] as String? ?? 'User';
       _nameCache[uid] = name;
-      print('[ChatsController] fetched name for uid=$uid → $name');
+      debugPrint('[ChatsController] fetched name for uid=$uid → $name');
       return name;
     } catch (e) {
-      print('[ChatsController] ERROR fetching name for uid=$uid: $e');
+      debugPrint('[ChatsController] ERROR fetching name for uid=$uid: $e');
       _nameCache[uid] = 'User';
       return 'User';
     }
@@ -128,7 +128,7 @@ class ChatsController extends ChangeNotifier {
 
   // ─── Handle stream errors ─────────────────────────────────────────────────
   void _onError(Object e) {
-    print('[ChatsController] stream ERROR: $e');
+    debugPrint('[ChatsController] stream ERROR: $e');
     // ⚠️ PERMISSION_DENIED → add Firestore rules for chats/:
     //    match /chats/{chatId} { allow read, write: if request.auth != null; }
     _error = e.toString();

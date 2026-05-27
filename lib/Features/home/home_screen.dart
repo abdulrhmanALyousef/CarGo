@@ -32,11 +32,11 @@ class HomeScreen extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       // ── Header ─────────────────────────────────────────────
-                      Row(
+                      const Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          const Column(
+                          Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               Text(
@@ -55,7 +55,7 @@ class HomeScreen extends StatelessWidget {
                               ),
                             ],
                           ),
-                          const ProfileMenuButton(),
+                          ProfileMenuButton(),
                         ],
                       ),
 

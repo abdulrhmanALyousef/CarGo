@@ -92,7 +92,7 @@ class EmailOtpController extends ChangeNotifier {
   Future<void> resendOtp(BuildContext context) async {
     if (!canResend) return;
 
-    for (final c in boxControllers) c.clear();
+    for (final c in boxControllers) { c.clear(); }
     focusNodes[0].requestFocus();
     notifyListeners();
 
@@ -111,7 +111,7 @@ class EmailOtpController extends ChangeNotifier {
         );
       }
     } catch (e) {
-      _showError(context, _extractError(e));
+      if (context.mounted) _showError(context, _extractError(e));
     } finally {
       _isLoading = false;
       notifyListeners();
@@ -187,7 +187,7 @@ class EmailOtpController extends ChangeNotifier {
         );
       }
     } catch (e) {
-      _showError(context, _extractError(e));
+      if (context.mounted) _showError(context, _extractError(e));
     } finally {
       _isLoading = false;
       notifyListeners();
@@ -210,8 +210,8 @@ class EmailOtpController extends ChangeNotifier {
   @override
   void dispose() {
     _timer?.cancel();
-    for (final c in boxControllers) c.dispose();
-    for (final f in focusNodes) f.dispose();
+    for (final c in boxControllers) { c.dispose(); }
+    for (final f in focusNodes) { f.dispose(); }
     super.dispose();
   }
 }

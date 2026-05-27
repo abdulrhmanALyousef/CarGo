@@ -91,7 +91,7 @@ class OtpController extends ChangeNotifier {
       phoneNumber: phoneNumber,
       onCompleted: (credential) async {
         final cred = await FirebaseAuth.instance.signInWithCredential(credential);
-        await _afterSuccess(context, cred.user);
+        if (context.mounted) await _afterSuccess(context, cred.user);
       },
       onFailed: (e) {
         _showError(context, e.message ?? 'Failed to resend code');
@@ -123,11 +123,11 @@ class OtpController extends ChangeNotifier {
         verificationId: verificationId,
         smsCode: otpCode,
       );
-      await _afterSuccess(context, cred.user);
+      if (context.mounted) await _afterSuccess(context, cred.user);
     } on FirebaseAuthException catch (e) {
-      _showError(context, e.message ?? 'Invalid code, please try again');
+      if (context.mounted) _showError(context, e.message ?? 'Invalid code, please try again');
     } catch (e) {
-      _showError(context, 'Verification failed: ${e.toString()}');
+      if (context.mounted) _showError(context, 'Verification failed: ${e.toString()}');
     } finally {
       _isLoading = false;
       notifyListeners();

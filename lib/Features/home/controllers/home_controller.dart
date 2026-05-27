@@ -1,26 +1,34 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:cargo/core/widgets/location_sheet.dart';
 import 'package:cargo/core/theme/light_color.dart';
-import 'package:cargo/core/dataSource/remote_data/firebase_service.dart';
 import 'package:cargo/models/car_model.dart';
 
 class HomeController extends ChangeNotifier {
   HomeController() {
-    fetchCars();
+    _startCarsStream();
   }
 
   String _location = '';
   DateTimeRange? _dateRange;
   String _searchQuery = '';
 
-  // _cars holds every car fetched from Firestore.
-  // _displayedCars is the subset shown after search/filter.
   List<Car> _cars = [];
   List<Car> _displayedCars = [];
 
-  bool _isLoadingCars = false;
+  bool _isLoadingCars = true;
   bool get isLoadingCars => _isLoadingCars;
+
+  // True while the async booking-conflict check is running after dates are selected.
+  bool _isCheckingBookings = false;
+  bool get isCheckingBookings => _isCheckingBookings;
+
+  // Car IDs excluded because they have a confirmed/in_trip booking that overlaps
+  // the currently selected date range. Cleared when dates are cleared.
+  Set<String> _bookingConflictedIds = {};
 
   String? _carsError;
   String? get carsError => _carsError;
@@ -29,11 +37,14 @@ class HomeController extends ChangeNotifier {
   DateTimeRange? get dateRange => _dateRange;
   String get searchQuery => _searchQuery;
 
-  /// True when any active filter is applied.
   bool get hasActiveFilter => _dateRange != null || _searchQuery.isNotEmpty;
 
-  /// The list the UI renders — filtered when the user has searched.
   List<Car> get cars => _displayedCars;
+
+  StreamSubscription<QuerySnapshot>? _carsSubscription;
+
+  // Incremented each time setDateRange is called so stale async checks are ignored.
+  int _conflictCheckVersion = 0;
 
   String get dateText {
     if (_dateRange == null) return 'Select dates';
@@ -49,7 +60,9 @@ class HomeController extends ChangeNotifier {
 
   void setDateRange(DateTimeRange val) {
     _dateRange = val;
-    notifyListeners();
+    _conflictCheckVersion++;
+    _applyFilters();
+    _refreshBookingConflicts(_conflictCheckVersion);
   }
 
   void setSearchQuery(String val) {
@@ -61,21 +74,71 @@ class HomeController extends ChangeNotifier {
     _location = '';
     _dateRange = null;
     _searchQuery = '';
+    _bookingConflictedIds = {};
+    _isCheckingBookings = false;
     _displayedCars = List.from(_cars);
     notifyListeners();
   }
 
-  // ── Search ──────────────────────────────────────────────────────────────────
-  // Applies all active filters: text query, date range, and location.
-  // Location is treated as optional for broader discoverability.
   void search(BuildContext context) {
     _applyFilters();
+  }
+
+  // ── Real-Time Stream ───────────────────────────────────────────────────────
+  // Listens to the full cars collection. Filters client-side to:
+  //   1. Exclude the current user's own cars
+  //   2. Show ready_for_rental AND reserved (has a future confirmed booking but
+  //      may still have available date slots). in_trip / maintenance / awaiting_*
+  //      are hidden because the car is not available.
+  // When dates are selected, _refreshBookingConflicts() runs async to remove
+  // cars whose confirmed/in_trip bookings overlap the requested range.
+  void _startCarsStream() {
+    _carsSubscription = FirebaseFirestore.instance
+        .collection('cars')
+        .snapshots()
+        .listen(
+      (snap) {
+        final currentUid = FirebaseAuth.instance.currentUser?.uid;
+        _cars = snap.docs.map((doc) {
+          final data = Map<String, dynamic>.from(doc.data());
+          data['id'] = doc.id;
+          return Car.fromJson(data);
+        }).where((car) {
+          if (car.ownerId == currentUid) return false;
+          return car.hubStatus == 'ready_for_rental' ||
+                 car.hubStatus == 'available' ||
+                 car.hubStatus == 'reserved';
+        }).toList();
+
+        _isLoadingCars = false;
+        _carsError = null;
+        _applyFilters();
+        // Re-run booking conflict check if dates are already selected
+        if (_dateRange != null) {
+          _conflictCheckVersion++;
+          _refreshBookingConflicts(_conflictCheckVersion);
+        }
+      },
+      onError: (e) {
+        _carsError = e.toString();
+        _isLoadingCars = false;
+        notifyListeners();
+      },
+    );
+  }
+
+  // Kept for pull-to-refresh compatibility — re-attaches the stream.
+  Future<void> fetchCars() async {
+    _carsSubscription?.cancel();
+    _isLoadingCars = true;
+    _carsError = null;
+    notifyListeners();
+    _startCarsStream();
   }
 
   void _applyFilters() {
     var filtered = List<Car>.from(_cars);
 
-    // ── Text search: brand, model, category, city, location ────────────────
     if (_searchQuery.isNotEmpty) {
       final q = _searchQuery.toLowerCase();
       filtered = filtered.where((car) {
@@ -88,31 +151,88 @@ class HomeController extends ChangeNotifier {
       }).toList();
     }
 
-    // ── Date range: check car availability window ───────────────────────────
     if (_dateRange != null) {
       final start = _dateRange!.start;
       final end = _dateRange!.end;
+      // Filter 1: car availability window (fast, no network).
       filtered = filtered.where((car) {
-        if (car.availableFrom != null &&
-            start.isBefore(car.availableFrom!)) {
+        if (car.availableFrom != null && start.isBefore(car.availableFrom!)) {
           return false;
         }
         if (car.availableTo != null && end.isAfter(car.availableTo!)) {
           return false;
         }
         return true;
-        // TODO: Also cross-check against confirmed bookings for this car
-        // to prevent showing cars already booked for the selected dates.
-        // Requires a Firestore query per car — implement when booking
-        // volume justifies the extra reads.
       }).toList();
+      // Filter 2: exclude cars whose confirmed/in_trip bookings overlap the
+      // selected range. This is populated by _refreshBookingConflicts() which
+      // runs asynchronously after dates are chosen.
+      if (_bookingConflictedIds.isNotEmpty) {
+        filtered =
+            filtered.where((c) => !_bookingConflictedIds.contains(c.id)).toList();
+      }
+    } else {
+      // No dates selected: hide reserved cars — only ready_for_rental / available
+      // are truly bookable without knowing the desired dates. Reserved cars
+      // reappear once dates are chosen and pass the booking-conflict check.
+      filtered = filtered.where((car) =>
+          car.hubStatus == 'ready_for_rental' ||
+          car.hubStatus == 'available').toList();
     }
 
     _displayedCars = filtered;
     notifyListeners();
   }
 
-  // ── Pickers ─────────────────────────────────────────────────────────────────
+  // ── Async Booking-Conflict Check ──────────────────────────────────────────
+  // Queries Firestore for confirmed/in_trip bookings that overlap the selected
+  // date range for all currently visible cars (in chunks of 30).
+  // Uses [version] to discard results from stale calls when dates change rapidly.
+  Future<void> _refreshBookingConflicts(int version) async {
+    if (_dateRange == null) return;
+    _isCheckingBookings = true;
+    notifyListeners();
+
+    final start = _dateRange!.start;
+    final end   = _dateRange!.end;
+    final carIds = _cars.map((c) => c.id).toList();
+    final conflicted = <String>{};
+
+    try {
+      for (var i = 0; i < carIds.length; i += 30) {
+        if (_conflictCheckVersion != version) return; // stale — abandon
+        final chunk = carIds.sublist(i, (i + 30).clamp(0, carIds.length));
+        final snap = await FirebaseFirestore.instance
+            .collection('bookings')
+            .where('carId', whereIn: chunk)
+            .where('status', whereIn: ['confirmed', 'in_trip'])
+            .get();
+
+        for (final doc in snap.docs) {
+          final data = doc.data();
+          final existStart =
+              (data['startDate'] as Timestamp?)?.toDate() ?? DateTime(2000);
+          final existEnd =
+              (data['endDate'] as Timestamp?)?.toDate() ?? DateTime(2000);
+          // Standard overlap: requestedStart < existingEnd AND requestedEnd > existingStart
+          if (start.isBefore(existEnd) && end.isAfter(existStart)) {
+            conflicted.add(data['carId'] as String? ?? '');
+          }
+        }
+      }
+    } catch (_) {
+      // On error, keep current conflict set — the booking screen calendar
+      // will still block reserved days when the user taps through.
+    }
+
+    if (_conflictCheckVersion != version) return; // stale — another check started
+
+    _bookingConflictedIds = conflicted;
+    _isCheckingBookings = false;
+    _applyFilters(); // re-apply to reflect the newly populated conflict set
+  }
+
+  // ── Pickers ────────────────────────────────────────────────────────────────
 
   Future<void> openLocation(BuildContext context) async {
     final result = await showModalBottomSheet<String>(
@@ -146,45 +266,9 @@ class HomeController extends ChangeNotifier {
     if (result != null) setDateRange(result);
   }
 
-  // ── Data ─────────────────────────────────────────────────────────────────────
-
-  Future<void> fetchCars() async {
-    _isLoadingCars = true;
-    _carsError = null;
-    notifyListeners();
-
-    try {
-      final data = await FirebaseService().getCars();
-      final currentUid = FirebaseAuth.instance.currentUser?.uid;
-
-      // TODO: Replace this query with AI recommendation logic.
-      // Future recommendation system should rank cars based on renter history,
-      // preferences, past booked categories, location, and interaction behavior.
-
-      // Show all cars that belong to other owners. Hub status filtering is done
-      // here to include cars that are ready for rental at the hub while also
-      // showing legacy cars (no hubStatus field) for backwards compatibility
-      // during development. In production, narrow this to visibleStatuses only.
-      const visibleStatuses = {'at_hub', 'available', 'ready_for_rental'};
-
-      var allOtherCars = data
-          .map((json) => Car.fromJson(json))
-          .where((car) => car.ownerId != currentUid)
-          .toList();
-
-      // If filtering by hub status returns results, use filtered list.
-      // If not (legacy data without hubStatus), show all other-owner cars.
-      final hubFiltered = allOtherCars
-          .where((car) => visibleStatuses.contains(car.hubStatus))
-          .toList();
-
-      _cars = hubFiltered.isNotEmpty ? hubFiltered : allOtherCars;
-      _displayedCars = List.from(_cars); // show all on first load
-    } catch (e) {
-      _carsError = e.toString();
-    } finally {
-      _isLoadingCars = false;
-      notifyListeners();
-    }
+  @override
+  void dispose() {
+    _carsSubscription?.cancel();
+    super.dispose();
   }
 }

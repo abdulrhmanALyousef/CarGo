@@ -65,7 +65,7 @@ class _ChatBodyState extends State<_ChatBody> {
               shape: BoxShape.circle,
             ),
             child: IconButton(
-              icon: Icon(Icons.arrow_back, color: LightColors.textColor),
+              icon: const Icon(Icons.arrow_back, color: LightColors.textColor),
               onPressed: () => Navigator.pop(context),
             ),
           ),
@@ -75,13 +75,13 @@ class _ChatBodyState extends State<_ChatBody> {
           children: [
             Text(
               widget.otherUserName,
-              style: TextStyle(
+              style: const TextStyle(
                 color: LightColors.textColor,
                 fontSize: 16,
                 fontWeight: FontWeight.w600,
               ),
             ),
-            Text(
+            const Text(
               'Online',
               style: TextStyle(
                 color: LightColors.primaryColor,
@@ -100,7 +100,7 @@ class _ChatBodyState extends State<_ChatBody> {
               stream: ctrl.messagesStream,
               builder: (context, snapshot) {
                 if (snapshot.hasError) {
-                  print('[Chat] stream error: ${snapshot.error}');
+                  debugPrint('[Chat] stream error: ${snapshot.error}');
                   // ⚠️ PERMISSION_DENIED here → add Firestore rules for chats/
                   return Center(
                     child: Padding(
@@ -131,7 +131,7 @@ class _ChatBodyState extends State<_ChatBody> {
                       textAlign: TextAlign.center,
                       style: TextStyle(
                         fontSize: 14,
-                        color: LightColors.textColor.withOpacity(0.4),
+                        color: LightColors.textColor.withValues(alpha:0.4),
                       ),
                     ),
                   );
@@ -193,7 +193,7 @@ class _ChatBodyState extends State<_ChatBody> {
                       decoration: InputDecoration(
                         hintText: 'Type a message…',
                         hintStyle: TextStyle(
-                          color: LightColors.textColor.withOpacity(0.4),
+                          color: LightColors.textColor.withValues(alpha:0.4),
                           fontSize: 14,
                         ),
                         filled: true,
@@ -288,7 +288,7 @@ class _MessageBubble extends StatelessWidget {
           ),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(0.05),
+              color: Colors.black.withValues(alpha:0.05),
               blurRadius: 4,
               offset: const Offset(0, 2),
             ),
@@ -315,8 +315,8 @@ class _MessageBubble extends StatelessWidget {
                   style: TextStyle(
                     fontSize: 10,
                     color: isMe
-                        ? Colors.white.withOpacity(0.7)
-                        : LightColors.textColor.withOpacity(0.4),
+                        ? Colors.white.withValues(alpha:0.7)
+                        : LightColors.textColor.withValues(alpha:0.4),
                   ),
                 ),
                 if (isMe) ...[
@@ -326,7 +326,7 @@ class _MessageBubble extends StatelessWidget {
                     size: 12,
                     color: isRead
                         ? Colors.white
-                        : Colors.white.withOpacity(0.6),
+                        : Colors.white.withValues(alpha:0.6),
                   ),
                 ],
               ],

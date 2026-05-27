@@ -35,12 +35,12 @@ class _ForgotPasswordView extends StatelessWidget {
               shape: BoxShape.circle,
             ),
             child: IconButton(
-              icon: Icon(Icons.arrow_back, color: LightColors.textColor),
+              icon: const Icon(Icons.arrow_back, color: LightColors.textColor),
               onPressed: () => Navigator.pop(context),
             ),
           ),
         ),
-        title: Text(
+        title: const Text(
           'Forgot Password',
           style: TextStyle(
             color: LightColors.textColor,
@@ -63,7 +63,7 @@ class _ForgotPasswordView extends StatelessWidget {
                   width: 72,
                   height: 72,
                   decoration: BoxDecoration(
-                    color: LightColors.primaryColor.withOpacity(0.1),
+                    color: LightColors.primaryColor.withValues(alpha:0.1),
                     shape: BoxShape.circle,
                   ),
                   child: const Icon(
@@ -76,7 +76,7 @@ class _ForgotPasswordView extends StatelessWidget {
               const SizedBox(height: 24),
 
               // ─── Title ─────────────────────────────────────────────────
-              Center(
+              const Center(
                 child: Text(
                   'Reset Password',
                   style: TextStyle(
@@ -95,7 +95,7 @@ class _ForgotPasswordView extends StatelessWidget {
                   textAlign: TextAlign.center,
                   style: TextStyle(
                     fontSize: 14,
-                    color: LightColors.textColor.withOpacity(0.54),
+                    color: LightColors.textColor.withValues(alpha:0.54),
                     height: 1.5,
                   ),
                 ),
@@ -103,7 +103,7 @@ class _ForgotPasswordView extends StatelessWidget {
               const SizedBox(height: 36),
 
               // ─── Email label ───────────────────────────────────────────
-              Text(
+              const Text(
                 'Email',
                 style: TextStyle(
                   fontSize: 13,
@@ -123,7 +123,7 @@ class _ForgotPasswordView extends StatelessWidget {
                 decoration: InputDecoration(
                   hintText: 'Enter your email address',
                   hintStyle:
-                      TextStyle(color: LightColors.textColor.withOpacity(0.4)),
+                      TextStyle(color: LightColors.textColor.withValues(alpha:0.4)),
                   filled: true,
                   fillColor: const Color(0xFFF2F2F2),
                   border: OutlineInputBorder(
@@ -168,7 +168,7 @@ class _ForgotPasswordView extends StatelessWidget {
                   style: ElevatedButton.styleFrom(
                     backgroundColor: LightColors.primaryColor,
                     disabledBackgroundColor:
-                        LightColors.primaryColor.withOpacity(0.4),
+                        LightColors.primaryColor.withValues(alpha:0.4),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(30),
                     ),

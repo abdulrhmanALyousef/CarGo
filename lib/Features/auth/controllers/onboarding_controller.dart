@@ -161,14 +161,14 @@ class OnboardingController extends ChangeNotifier {
       final phoneExists =
           await FirebaseService().isPhoneExists(phoneController.text.trim());
       if (phoneExists) {
-        _showError(context, 'This phone number is already registered');
+        if (context.mounted) _showError(context, 'This phone number is already registered');
         return;
       }
 
       final nationalIdExists = await FirebaseService()
           .isNationalIdExists(nationalIdController.text.trim());
       if (nationalIdExists) {
-        _showError(context, 'This national ID is already registered');
+        if (context.mounted) _showError(context, 'This national ID is already registered');
         return;
       }
 
@@ -176,7 +176,7 @@ class OnboardingController extends ChangeNotifier {
 
       if (context.mounted) navigateToOtp();
     } catch (e) {
-      _showError(context, _extractError(e));
+      if (context.mounted) _showError(context, _extractError(e));
     } finally {
       _isLoading = false;
       notifyListeners();

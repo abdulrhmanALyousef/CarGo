@@ -30,6 +30,8 @@ class Car {
   final String hubLocation;
   final String category;
   final String fuelType;
+  final DateTime? deliveryRequestedAt;
+  final String? rejectionReason;
 
   Car({
     required this.id,
@@ -57,6 +59,8 @@ class Car {
     this.hubLocation = kHubLocation,
     this.category = '',
     this.fuelType = 'Petrol',
+    this.deliveryRequestedAt,
+    this.rejectionReason,
   });
 
   factory Car.fromJson(Map<String, dynamic> json) {
@@ -84,10 +88,15 @@ class Car {
       availableFrom: _parseDate(json['availableFrom']),
       availableTo: _parseDate(json['availableTo']),
       city: json['city'] as String? ?? '',
-      hubStatus: json['hubStatus'] as String? ?? 'awaiting_dropoff',
+      // The portal sometimes only updates 'status' without touching 'hubStatus'.
+      // If 'status' says ready_for_rental, trust it — the CF keeps them in sync
+      // after any booking event, so divergence only happens at verification time.
+      hubStatus: _resolveHubStatus(json['hubStatus'], json['status']),
       hubLocation: json['hubLocation'] as String? ?? kHubLocation,
       category: json['category'] as String? ?? '',
       fuelType: json['fuelType'] as String? ?? 'Petrol',
+      deliveryRequestedAt: _parseDate(json['deliveryRequestedAt']),
+      rejectionReason: json['rejectionReason'] as String?,
     );
   }
 
@@ -122,12 +131,17 @@ class Car {
       'hubLocation': hubLocation,
       'category': category,
       'fuelType': fuelType,
+      if (deliveryRequestedAt != null)
+        'deliveryRequestedAt': Timestamp.fromDate(deliveryRequestedAt!),
+      'rejectionReason': rejectionReason,
     };
   }
 
   Car copyWith({
     String? hubStatus,
     bool? available,
+    DateTime? deliveryRequestedAt,
+    String? rejectionReason,
   }) {
     return Car(
       id: id,
@@ -155,8 +169,23 @@ class Car {
       hubLocation: hubLocation,
       category: category,
       fuelType: fuelType,
+      deliveryRequestedAt: deliveryRequestedAt ?? this.deliveryRequestedAt,
+      rejectionReason: rejectionReason ?? this.rejectionReason,
     );
   }
+}
+
+// ── Hub status resolution ─────────────────────────────────────────────────────
+// The portal may update only the 'status' field while 'hubStatus' lags behind
+// at an earlier verification state ('at_hub', 'awaiting_employee_verification').
+// After any booking event the Cloud Function syncs both fields, so divergence
+// is only possible between portal verification and the first booking write.
+// Rule: if 'status' says ready_for_rental, the car is ready regardless of hubStatus.
+String _resolveHubStatus(dynamic hubStatusRaw, dynamic statusRaw) {
+  final hs = hubStatusRaw as String?;
+  final s  = statusRaw  as String?;
+  if (s == 'ready_for_rental') return 'ready_for_rental';
+  return hs ?? s ?? 'awaiting_dropoff';
 }
 
 // ── Date parsing helper ───────────────────────────────────────────────────────

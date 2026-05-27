@@ -71,7 +71,7 @@ class BookingScreen extends StatelessWidget {
               textAlign: TextAlign.center,
               style: TextStyle(
                   fontSize: 14,
-                  color: LightColors.textColor.withOpacity(0.5)),
+                  color: LightColors.textColor.withValues(alpha:0.5)),
             ),
             const SizedBox(height: 28),
             AppButton(
@@ -123,11 +123,14 @@ class BookingScreen extends StatelessWidget {
                           const Icon(Icons.location_on,
                               size: 13, color: LightColors.primaryColor),
                           const SizedBox(width: 2),
-                          Text(
-                            car.location,
-                            style: TextStyle(
-                                fontSize: 13,
-                                color: LightColors.textColor.withOpacity(0.5)),
+                          Expanded(
+                            child: Text(
+                              car.hubLocation,
+                              style: TextStyle(
+                                  fontSize: 13,
+                                  color: LightColors.textColor.withValues(alpha:0.5)),
+                              overflow: TextOverflow.ellipsis,
+                            ),
                           ),
                         ],
                       ),
@@ -149,7 +152,7 @@ class BookingScreen extends StatelessWidget {
                         text: '/day',
                         style: TextStyle(
                             fontSize: 12,
-                            color: LightColors.textColor.withOpacity(0.5)),
+                            color: LightColors.textColor.withValues(alpha:0.5)),
                       ),
                     ],
                   ),
@@ -240,10 +243,10 @@ class BookingScreen extends StatelessWidget {
               padding:
                   const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
               decoration: BoxDecoration(
-                color: LightColors.primaryColor.withOpacity(0.08),
+                color: LightColors.primaryColor.withValues(alpha:0.08),
                 borderRadius: BorderRadius.circular(8),
                 border: Border.all(
-                    color: LightColors.primaryColor.withOpacity(0.2)),
+                    color: LightColors.primaryColor.withValues(alpha:0.2)),
               ),
               child: Row(
                 children: [
@@ -505,7 +508,7 @@ class BookingScreen extends StatelessWidget {
 
                     // Days between start and end: light green tint.
                     rangeHighlightColor:
-                        LightColors.primaryColor.withOpacity(0.15),
+                        LightColors.primaryColor.withValues(alpha:0.15),
                     withinRangeTextStyle: const TextStyle(
                         color: LightColors.primaryColor),
                     withinRangeDecoration: const BoxDecoration(
@@ -547,7 +550,7 @@ class BookingScreen extends StatelessWidget {
                       _legendDot(LightColors.primaryColor, 'Selected'),
                       const SizedBox(width: 16),
                       _legendDot(
-                          LightColors.primaryColor.withOpacity(0.20), 'Range'),
+                          LightColors.primaryColor.withValues(alpha:0.20), 'Range'),
                       const SizedBox(width: 16),
                       _legendDot(const Color(0xFFCCCCCC), 'Unavailable'),
                     ],

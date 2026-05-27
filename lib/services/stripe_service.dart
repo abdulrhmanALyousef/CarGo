@@ -30,12 +30,12 @@ class StripeService {
   //    Throws an Exception with a user-facing message on card decline / error.
   Future<bool> verifyCard(BuildContext context) async {
     // Step 1 — fetch clientSecret from Cloud Function
-    print('[StripeService] Calling createSetupIntent...');
+    debugPrint('[StripeService] Calling createSetupIntent...');
     final callable = FirebaseFunctions.instanceFor(region: 'us-central1')
         .httpsCallable('createSetupIntent');
     final result = await callable.call<dynamic>();
     final clientSecret = (result.data as Map)['clientSecret'] as String;
-    print('[StripeService] Got clientSecret');
+    debugPrint('[StripeService] Got clientSecret');
 
     // Step 2 — initialise PaymentSheet
     await Stripe.instance.initPaymentSheet(
@@ -49,14 +49,14 @@ class StripeService {
     // Step 3 — present PaymentSheet; throws StripeException on cancel/failure
     try {
       await Stripe.instance.presentPaymentSheet();
-      print('[StripeService] Card verified successfully');
+      debugPrint('[StripeService] Card verified successfully');
       return true;
     } on StripeException catch (e) {
       if (e.error.code == FailureCode.Canceled) {
-        print('[StripeService] User cancelled payment sheet');
+        debugPrint('[StripeService] User cancelled payment sheet');
         return false;
       }
-      print('[StripeService] StripeException: ${e.error.code} — ${e.error.localizedMessage}');
+      debugPrint('[StripeService] StripeException: ${e.error.code} — ${e.error.localizedMessage}');
       throw Exception(
         e.error.localizedMessage ?? 'Card verification failed. Please try again.',
       );

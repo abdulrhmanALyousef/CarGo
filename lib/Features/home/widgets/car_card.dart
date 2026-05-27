@@ -8,9 +8,10 @@ import 'package:cargo/core/theme/light_color.dart';
 /// Rich car card used on the Home screen.
 /// Shows image, price overlay, category badge, brand+model, and specs row.
 class CarCard extends StatelessWidget {
-  const CarCard({super.key, required this.model});
+  const CarCard({super.key, required this.model, this.showFavoriteButton = true});
 
   final Car model;
+  final bool showFavoriteButton;
 
   @override
   Widget build(BuildContext context) {
@@ -66,23 +67,24 @@ class CarCard extends StatelessWidget {
               ),
 
               // ── Favourite icon (top-right) ──────────────────────────────
-              Positioned(
-                top: 10,
-                right: 12,
-                child: Container(
-                  width: 34,
-                  height: 34,
-                  decoration: BoxDecoration(
-                    color: Colors.black.withValues(alpha: 0.35),
-                    shape: BoxShape.circle,
-                  ),
-                  child: const Icon(
-                    Icons.favorite_outline,
-                    size: 18,
-                    color: Colors.white,
+              if (showFavoriteButton)
+                Positioned(
+                  top: 10,
+                  right: 12,
+                  child: Container(
+                    width: 34,
+                    height: 34,
+                    decoration: BoxDecoration(
+                      color: Colors.black.withValues(alpha: 0.35),
+                      shape: BoxShape.circle,
+                    ),
+                    child: const Icon(
+                      Icons.favorite_outline,
+                      size: 18,
+                      color: Colors.white,
+                    ),
                   ),
                 ),
-              ),
 
               // ── Category badge ──────────────────────────────────────────
               if (model.category.isNotEmpty)

@@ -21,7 +21,7 @@ class ChatController extends ChangeNotifier {
     required this.currentUserId,
     required this.otherUserId,
   }) {
-    print('[Chat] chatId=$chatId | currentUser=$currentUserId | otherUser=$otherUserId');
+    debugPrint('[Chat] chatId=$chatId | currentUser=$currentUserId | otherUser=$otherUserId');
     _ensureChatExists();
   }
 
@@ -29,7 +29,7 @@ class ChatController extends ChangeNotifier {
   // Ascending order so oldest messages appear at the top and newest at the
   // bottom — the scroll-to-bottom logic keeps the latest message visible.
   Stream<QuerySnapshot<Map<String, dynamic>>> get messagesStream {
-    print('[Chat] subscribing to stream — chats/$chatId/messages');
+    debugPrint('[Chat] subscribing to stream — chats/$chatId/messages');
     return _firestore
         .collection('chats')
         .doc(chatId)
@@ -41,7 +41,7 @@ class ChatController extends ChangeNotifier {
   // ─── Ensure chat document exists ──────────────────────────────────────────
   // Uses set() with merge so it is safe whether the doc exists or not.
   Future<void> _ensureChatExists() async {
-    print('[Chat] _ensureChatExists — chats/$chatId');
+    debugPrint('[Chat] _ensureChatExists — chats/$chatId');
     try {
       await _firestore.collection('chats').doc(chatId).set(
         {
@@ -54,9 +54,9 @@ class ChatController extends ChangeNotifier {
         SetOptions(merge: true), // no-op if doc already exists
       );
       _chatReady = true;
-      print('[Chat] chat document ready');
+      debugPrint('[Chat] chat document ready');
     } catch (e) {
-      print('[Chat] ERROR creating chat document: $e');
+      debugPrint('[Chat] ERROR creating chat document: $e');
       // ⚠️ If this prints PERMISSION_DENIED, add Firestore rules — see bottom
       // of this file for the required rules.
     }
@@ -69,11 +69,11 @@ class ChatController extends ChangeNotifier {
 
     // Wait for the chat document to be ready before writing.
     if (!_chatReady) {
-      print('[Chat] chat not ready yet — waiting for _ensureChatExists');
+      debugPrint('[Chat] chat not ready yet — waiting for _ensureChatExists');
       await _ensureChatExists();
     }
 
-    print('[Chat] sending message: "$text"');
+    debugPrint('[Chat] sending message: "$text"');
     messageController.clear();
     _isSending = true;
     notifyListeners();
@@ -91,7 +91,7 @@ class ChatController extends ChangeNotifier {
         'timestamp': FieldValue.serverTimestamp(),
         'isRead': false,
       });
-      print('[Chat] message written — id=${msgRef.id}');
+      debugPrint('[Chat] message written — id=${msgRef.id}');
 
       // ── Step 2: update chat metadata (set+merge is safe on new docs) ─────
       await _firestore.collection('chats').doc(chatId).set(
@@ -101,11 +101,11 @@ class ChatController extends ChangeNotifier {
         },
         SetOptions(merge: true),
       );
-      print('[Chat] chat metadata updated');
+      debugPrint('[Chat] chat metadata updated');
 
       _scrollToBottom();
     } catch (e) {
-      print('[Chat] ERROR sending message: $e');
+      debugPrint('[Chat] ERROR sending message: $e');
       // ⚠️ PERMISSION_DENIED here means Firestore rules block writes to
       //    chats/{chatId}/messages — see rules note at bottom of this file.
       messageController.text = text; // restore so the user can retry
@@ -118,7 +118,7 @@ class ChatController extends ChangeNotifier {
 
   // ─── Mark incoming messages as read ──────────────────────────────────────
   Future<void> markMessagesRead() async {
-    print('[Chat] markMessagesRead — chatId=$chatId');
+    debugPrint('[Chat] markMessagesRead — chatId=$chatId');
     try {
       final unread = await _firestore
           .collection('chats')
@@ -135,9 +135,9 @@ class ChatController extends ChangeNotifier {
         batch.update(doc.reference, {'isRead': true});
       }
       await batch.commit();
-      print('[Chat] marked ${unread.docs.length} messages as read');
+      debugPrint('[Chat] marked ${unread.docs.length} messages as read');
     } catch (e) {
-      print('[Chat] ERROR marking messages read: $e');
+      debugPrint('[Chat] ERROR marking messages read: $e');
     }
   }
 

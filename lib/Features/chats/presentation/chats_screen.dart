@@ -58,7 +58,7 @@ class ChatsScreen extends StatelessWidget {
           textAlign: TextAlign.center,
           style: TextStyle(
             fontSize: 14,
-            color: LightColors.textColor.withOpacity(0.4),
+            color: LightColors.textColor.withValues(alpha:0.4),
           ),
         ),
       );
@@ -70,7 +70,7 @@ class ChatsScreen extends StatelessWidget {
       separatorBuilder: (_, __) => Divider(
         height: 1,
         indent: 72,
-        color: LightColors.textColor.withOpacity(0.08),
+        color: LightColors.textColor.withValues(alpha:0.08),
       ),
       itemBuilder: (context, index) {
         final item = ctrl.chats[index];
@@ -113,7 +113,7 @@ class _ChatTile extends StatelessWidget {
               width: 48,
               height: 48,
               decoration: BoxDecoration(
-                color: LightColors.primaryColor.withOpacity(0.1),
+                color: LightColors.primaryColor.withValues(alpha:0.1),
                 shape: BoxShape.circle,
               ),
               child: Center(
@@ -152,7 +152,7 @@ class _ChatTile extends StatelessWidget {
                     item.lastMessage.isEmpty ? 'No messages yet' : item.lastMessage,
                     style: TextStyle(
                       fontSize: 13,
-                      color: LightColors.textColor.withOpacity(0.5),
+                      color: LightColors.textColor.withValues(alpha:0.5),
                     ),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
@@ -169,7 +169,7 @@ class _ChatTile extends StatelessWidget {
                 _formatTime(item.lastTimestamp!),
                 style: TextStyle(
                   fontSize: 11,
-                  color: LightColors.textColor.withOpacity(0.4),
+                  color: LightColors.textColor.withValues(alpha:0.4),
                 ),
               ),
           ],

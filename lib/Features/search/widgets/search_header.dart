@@ -7,12 +7,12 @@ class SearchHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(20, 20, 20, 8),
+    return const Padding(
+      padding: EdgeInsets.fromLTRB(20, 20, 20, 8),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          const Text(
+          Text(
             'Search',
             style: TextStyle(
               fontSize: 22,
@@ -20,7 +20,7 @@ class SearchHeader extends StatelessWidget {
               color: LightColors.textColor,
             ),
           ),
-          const ProfileMenuButton(),
+          ProfileMenuButton(),
         ],
       ),
     );

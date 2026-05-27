@@ -55,11 +55,11 @@ class HubMapCard extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(width: 12),
-                Expanded(
+                const Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Text(
+                      Text(
                         kHubLocation,
                         style: TextStyle(
                           fontSize: 14,
@@ -67,18 +67,18 @@ class HubMapCard extends StatelessWidget {
                           color: LightColors.textColor,
                         ),
                       ),
-                      const SizedBox(height: 2),
-                      const Text(
+                      SizedBox(height: 2),
+                      Text(
                         'Al Yasmin District, Riyadh',
                         style: TextStyle(
                           fontSize: 12,
                           color: Color(0xFF666666),
                         ),
                       ),
-                      const SizedBox(height: 2),
+                      SizedBox(height: 2),
                       Text(
                         '$kHubLat°N  $kHubLng°E',
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontSize: 11,
                           color: Color(0xFF999999),
                           fontFamily: 'monospace',
@@ -87,7 +87,7 @@ class HubMapCard extends StatelessWidget {
                     ],
                   ),
                 ),
-                _OpenMapsButton(onTap: _openInMaps),
+                const _OpenMapsButton(onTap: _openInMaps),
               ],
             ),
           ),
@@ -227,9 +227,9 @@ class _MapGridPainter extends CustomPainter {
       ..color = const Color(0xFFC8E6C9).withValues(alpha: 0.5)
       ..style = PaintingStyle.fill;
     canvas.drawRect(
-        Rect.fromLTWH(10, 25, 40, 20), blockPaint);
+        const Rect.fromLTWH(10, 25, 40, 20), blockPaint);
     canvas.drawRect(
-        Rect.fromLTWH(80, 55, 60, 25), blockPaint);
+        const Rect.fromLTWH(80, 55, 60, 25), blockPaint);
     canvas.drawRect(
         Rect.fromLTWH(size.width - 70, 25, 50, 20), blockPaint);
     canvas.drawRect(

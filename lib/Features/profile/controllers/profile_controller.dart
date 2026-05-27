@@ -109,7 +109,7 @@ class ProfileController extends ChangeNotifier {
         );
       }
     } catch (e) {
-      _showError(context, 'Upload failed: $e');
+      if (context.mounted) _showError(context, 'Upload failed: $e');
     } finally {
       _isSaving = false;
       notifyListeners();
@@ -161,7 +161,7 @@ class ProfileController extends ChangeNotifier {
       }
       return true;
     } catch (e) {
-      _showError(context, 'Update failed: $e');
+      if (context.mounted) _showError(context, 'Update failed: $e');
       return false;
     } finally {
       _isSaving = false;
@@ -181,7 +181,7 @@ class ProfileController extends ChangeNotifier {
         );
       }
     } catch (e) {
-      _showError(context, 'Logout failed: $e');
+      if (context.mounted) _showError(context, 'Logout failed: $e');
     }
   }
 
@@ -226,12 +226,14 @@ class ProfileController extends ChangeNotifier {
       _isLoading = false;
       notifyListeners();
       if (e.toString().contains('requires-recent-login')) {
-        _showError(
-          context,
-          'Please log out and log back in before deleting your account.',
-        );
+        if (context.mounted) {
+          _showError(
+            context,
+            'Please log out and log back in before deleting your account.',
+          );
+        }
       } else {
-        _showError(context, 'Delete failed: $e');
+        if (context.mounted) _showError(context, 'Delete failed: $e');
       }
     }
   }
