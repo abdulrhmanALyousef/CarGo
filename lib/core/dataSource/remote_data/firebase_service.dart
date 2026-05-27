@@ -256,6 +256,24 @@ class FirebaseService {
     await callable.call<dynamic>({'uid': uid, 'code': code});
   }
 
+  // ── Phone Login OTP (Authentica — no Play Integrity required) ────────────
+
+  /// Validates the phone exists in Firestore, then sends a 4-digit OTP via Authentica.
+  Future<void> sendPhoneLoginOtp(String phone) async {
+    final callable = _functions.httpsCallable('sendPhoneLoginOtp');
+    await callable.call<dynamic>({'phone': phone});
+  }
+
+  /// Verifies the OTP and returns a Firebase custom token for [phone].
+  Future<String> verifyPhoneLogin({
+    required String phone,
+    required String code,
+  }) async {
+    final callable = _functions.httpsCallable('verifyPhoneLogin');
+    final result = await callable.call<dynamic>({'phone': phone, 'code': code});
+    return (result.data as Map)['token'] as String;
+  }
+
   // ── Password-reset OTP (Cloud Functions) ─────────────────────────────────
 
   Future<void> sendOtp(String email) async {

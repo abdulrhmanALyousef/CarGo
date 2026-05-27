@@ -1144,3 +1144,108 @@ export const verifyLoginOtp = onCall(async (request) => {
   await ref.update({ used: true });
   return { success: true };
 });
+
+// ── sendPhoneLoginOtp ─────────────────────────────────────────────────────────
+//
+// Sends a 4-digit OTP to a phone number for phone-number-based login.
+// Replaces Firebase Phone Auth (which requires Play Integrity / SHA-1).
+// OTP is stored in phoneOtps/{sha256(phone)}.
+
+export const sendPhoneLoginOtp = onCall(
+  { secrets: [authenticaKey] },
+  async (request) => {
+    const phone: string = (request.data.phone ?? '').trim();
+
+    if (!phone || !/^\+966[0-9]{9}$/.test(phone)) {
+      throw new HttpsError('invalid-argument', 'A valid Saudi phone number is required (+966XXXXXXXXX).');
+    }
+
+    // Ensure the phone belongs to a registered user.
+    const usersSnap = await db.collection('users').where('phone', '==', phone).limit(1).get();
+    if (usersSnap.empty) {
+      throw new HttpsError('not-found', 'No account found with this phone number.');
+    }
+
+    const ref = db.collection('phoneOtps').doc(sha256(phone));
+    const existing = await ref.get();
+
+    if (existing.exists) {
+      const d = existing.data()!;
+      const ageSeconds = (Date.now() - (d.createdAt as admin.firestore.Timestamp).toMillis()) / 1000;
+      if (ageSeconds < 300 && (d.requestCount ?? 1) >= 3) {
+        throw new HttpsError('resource-exhausted', 'Too many OTP requests. Please wait a few minutes.');
+      }
+    }
+
+    const code = generateOtp4();
+    const requestCount = existing.exists ? (existing.data()?.requestCount ?? 0) + 1 : 1;
+
+    await ref.set({
+      phone,
+      hashedCode: sha256(code),
+      expiresAt: admin.firestore.Timestamp.fromMillis(Date.now() + 5 * 60 * 1000),
+      used: false,
+      attempts: 0,
+      createdAt: admin.firestore.FieldValue.serverTimestamp(),
+      requestCount,
+    });
+
+    await sendSmsViaAuthentica(phone, code, authenticaKey.value());
+    return { success: true };
+  }
+);
+
+// ── verifyPhoneLogin ──────────────────────────────────────────────────────────
+//
+// Verifies the OTP sent by sendPhoneLoginOtp, looks up the uid by phone,
+// and returns a Firebase custom token so the client can sign in without
+// Play Integrity checks.
+
+export const verifyPhoneLogin = onCall(async (request) => {
+  const phone: string = (request.data.phone ?? '').trim();
+  const code: string  = (request.data.code  ?? '').trim();
+
+  if (!phone || !code) {
+    throw new HttpsError('invalid-argument', 'Phone and code are required.');
+  }
+
+  const ref  = db.collection('phoneOtps').doc(sha256(phone));
+  const snap = await ref.get();
+
+  if (!snap.exists) {
+    throw new HttpsError('not-found', 'No OTP found. Please request a new code.');
+  }
+
+  const d = snap.data()!;
+
+  if (d.used) {
+    throw new HttpsError('failed-precondition', 'This code has already been used.');
+  }
+
+  if (Date.now() > (d.expiresAt as admin.firestore.Timestamp).toMillis()) {
+    throw new HttpsError('deadline-exceeded', 'This code has expired. Request a new one.');
+  }
+
+  const attempts: number = d.attempts ?? 0;
+  if (attempts >= 5) {
+    throw new HttpsError('resource-exhausted', 'Too many failed attempts. Request a new code.');
+  }
+
+  if (sha256(code) !== d.hashedCode) {
+    await ref.update({ attempts: admin.firestore.FieldValue.increment(1) });
+    throw new HttpsError('unauthenticated', 'Incorrect code. Please try again.');
+  }
+
+  // Look up the uid by phone number.
+  const usersSnap = await db.collection('users').where('phone', '==', phone).limit(1).get();
+  if (usersSnap.empty) {
+    throw new HttpsError('not-found', 'No account found with this phone number.');
+  }
+
+  const uid = usersSnap.docs[0].id;
+  const customToken = await admin.auth().createCustomToken(uid);
+
+  await ref.update({ used: true });
+
+  return { success: true, token: customToken };
+});
