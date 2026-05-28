@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
@@ -6,6 +7,7 @@ import '../../../core/dataSource/local_data/preferences_manager.dart';
 import '../../../core/dataSource/remote_data/firebase_service.dart';
 import '../../../core/errors/error_handler.dart';
 import '../../../core/errors/app_messenger.dart';
+import '../../../core/services/mock_verification_service.dart';
 import '../../auth/login_screen.dart';
 
 class ProfileController extends ChangeNotifier {
@@ -13,6 +15,7 @@ class ProfileController extends ChangeNotifier {
   bool _isLoading = false;
   bool _isSaving = false;
   File? _pendingProfileImage;
+  StreamSubscription<Map<String, dynamic>?>? _userDataSub;
 
   Map<String, dynamic>? get userData => _userData;
   bool get isLoading => _isLoading;
@@ -40,6 +43,21 @@ class ProfileController extends ChangeNotifier {
     return role == 'owner';
   }
 
+  // TODO: Replace mock verification with real Moroor/National verification API in production.
+  /// Composite verification status driven by the 'verificationStatus' Firestore field.
+  /// Falls back to deriving from legacy fields for users created before this feature.
+  String get verificationStatus {
+    final status = _userData?['verificationStatus'];
+    if (status is String) return status;
+    // Backward compat: derive from licenseVerificationStatus for older accounts
+    if (licenseStatus == 'verified') return 'verified';
+    if (licenseUrl.isNotEmpty || nationalId.isNotEmpty) return 'pending';
+    return 'not_submitted';
+  }
+
+  bool get nationalIdVerified => _userData?['nationalIdVerified'] == true;
+  bool get drivingLicenseVerified => _userData?['drivingLicenseVerified'] == true;
+
   String get maskedNationalId {
     if (nationalId.isEmpty) return '—';
     if (nationalId.length <= 4) return nationalId;
@@ -47,7 +65,28 @@ class ProfileController extends ChangeNotifier {
   }
 
   ProfileController() {
-    loadUserData();
+    _subscribeToUserData();
+  }
+
+  void _subscribeToUserData() {
+    final uid = FirebaseAuth.instance.currentUser?.uid;
+    if (uid == null) return;
+
+    _isLoading = true;
+    notifyListeners();
+
+    _userDataSub = FirebaseService().streamUserData(uid: uid).listen(
+      (data) {
+        _userData = data;
+        _isLoading = false;
+        notifyListeners();
+      },
+      onError: (e) {
+        debugPrint('[ProfileController] stream error: $e');
+        _isLoading = false;
+        notifyListeners();
+      },
+    );
   }
 
   Future<void> loadUserData() async {
@@ -97,14 +136,22 @@ class ProfileController extends ChangeNotifier {
         imageFile: File(picked.path),
       );
       await FirebaseService().updateUserLicenseUrl(uid: uid, licenseUrl: url);
-      _userData = {
-        ..._userData ?? {},
-        'licenseUrl': url,
-        'licenseVerificationStatus': 'pending',
-      };
-      AppMessenger.showSuccess(context, 'License uploaded. Pending verification.');
+
+      // Reset to pending and kick off mock document review.
+      // TODO: Replace with real Moroor/National ID verification API in production.
+      await FirebaseService().updateVerificationStatus(uid, 'pending');
+      MockVerificationService.triggerMockVerification(uid);
+
+      if (context.mounted) {
+        AppMessenger.showSuccess(context, 'License uploaded. Verification started.');
+      }
     } catch (e) {
-      if (context.mounted) AppMessenger.showError(context, ErrorHandler.handle(e, tag: 'uploadLicense').userMessage);
+      if (context.mounted) {
+        AppMessenger.showError(
+          context,
+          ErrorHandler.handle(e, tag: 'uploadLicense').userMessage,
+        );
+      }
     } finally {
       _isSaving = false;
       notifyListeners();
@@ -146,10 +193,17 @@ class ProfileController extends ChangeNotifier {
       };
       _pendingProfileImage = null;
 
-      AppMessenger.showSuccess(context, 'Profile updated successfully.');
+      if (context.mounted) {
+        AppMessenger.showSuccess(context, 'Profile updated successfully.');
+      }
       return true;
     } catch (e) {
-      if (context.mounted) AppMessenger.showError(context, ErrorHandler.handle(e, tag: 'saveProfile').userMessage);
+      if (context.mounted) {
+        AppMessenger.showError(
+          context,
+          ErrorHandler.handle(e, tag: 'saveProfile').userMessage,
+        );
+      }
       return false;
     } finally {
       _isSaving = false;
@@ -169,7 +223,12 @@ class ProfileController extends ChangeNotifier {
         );
       }
     } catch (e) {
-      if (context.mounted) AppMessenger.showError(context, ErrorHandler.handle(e, tag: 'logout').userMessage);
+      if (context.mounted) {
+        AppMessenger.showError(
+          context,
+          ErrorHandler.handle(e, tag: 'logout').userMessage,
+        );
+      }
     }
   }
 
@@ -214,8 +273,17 @@ class ProfileController extends ChangeNotifier {
       _isLoading = false;
       notifyListeners();
       if (context.mounted) {
-        AppMessenger.showError(context, ErrorHandler.handle(e, tag: 'deleteAccount').userMessage);
+        AppMessenger.showError(
+          context,
+          ErrorHandler.handle(e, tag: 'deleteAccount').userMessage,
+        );
       }
     }
+  }
+
+  @override
+  void dispose() {
+    _userDataSub?.cancel();
+    super.dispose();
   }
 }

@@ -443,6 +443,37 @@ class FirebaseService {
     });
   }
 
+  // ── Document Verification (Mock) ─────────────────────────────────────────────
+
+  /// Real-time stream of a user's Firestore document — drives profile UI updates.
+  Stream<Map<String, dynamic>?> streamUserData({required String uid}) {
+    return _firestore
+        .collection('users')
+        .doc(uid)
+        .snapshots()
+        .map((snap) => snap.data());
+  }
+
+  // TODO: Replace mock verification with real Moroor/National verification API in production.
+  /// Updates the composite verification status on the user document.
+  /// When [status] is 'verified', marks both documents as individually verified.
+  Future<void> updateVerificationStatus(String uid, String status) async {
+    final updates = <String, dynamic>{
+      'verificationStatus': status,
+      'verificationUpdatedAt': FieldValue.serverTimestamp(),
+    };
+    if (status == 'verified') {
+      updates['nationalIdVerified'] = true;
+      updates['drivingLicenseVerified'] = true;
+      updates['licenseVerificationStatus'] = 'verified';
+    } else if (status == 'pending') {
+      updates['nationalIdVerified'] = false;
+      updates['drivingLicenseVerified'] = false;
+      updates['licenseVerificationStatus'] = 'pending';
+    }
+    await _firestore.collection('users').doc(uid).update(updates);
+  }
+
   // ── Notifications ──────────────────────────────────────────────────────────
 
   /// Saves or refreshes the FCM token for the given user.

@@ -7,6 +7,7 @@ import 'package:cargo/core/dataSource/local_data/preferences_manager.dart';
 import 'package:cargo/core/errors/error_handler.dart';
 import 'package:cargo/core/errors/app_messenger.dart';
 import 'package:cargo/Features/auth/signup_success_screen.dart';
+import 'package:cargo/core/services/mock_verification_service.dart';
 
 class EmailOtpController extends ChangeNotifier {
   final String email;
@@ -167,6 +168,11 @@ class EmailOtpController extends ChangeNotifier {
         uid: user.uid,
         roles: [role],
       );
+
+      // Step 5b: initialise verification status and kick off mock review.
+      // TODO: Replace with real Moroor/National ID verification API in production.
+      await FirebaseService().updateVerificationStatus(user.uid, 'pending');
+      MockVerificationService.triggerMockVerification(user.uid);
 
       // Step 6: navigate to success screen
       await PreferencesManager().setBool('isLoggedIn', true);

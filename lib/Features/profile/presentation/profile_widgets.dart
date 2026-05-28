@@ -495,22 +495,131 @@ class VerificationCard extends StatelessWidget {
   const VerificationCard({super.key, required this.ctrl});
   final ProfileController ctrl;
 
+  /// Returns a status badge pill for the given [status].
+  /// Pass [isDocUploaded] = false to show the "Not Uploaded" state for license.
+  Widget _statusBadge(String status, {bool isDocUploaded = true}) {
+    if (!isDocUploaded) {
+      return Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+        decoration: BoxDecoration(
+          color: Colors.grey.withValues(alpha: 0.12),
+          borderRadius: BorderRadius.circular(20),
+        ),
+        child: Row(mainAxisSize: MainAxisSize.min, children: [
+          Icon(Icons.upload_file_outlined, size: 13, color: Colors.grey[600]),
+          const SizedBox(width: 4),
+          Text(
+            'Not Uploaded',
+            style: TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
+              color: Colors.grey[600],
+            ),
+          ),
+        ]),
+      );
+    }
+
+    switch (status) {
+      case 'verified':
+        return Container(
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+          decoration: BoxDecoration(
+            color: Colors.green.withValues(alpha: 0.12),
+            borderRadius: BorderRadius.circular(20),
+          ),
+          child: Row(mainAxisSize: MainAxisSize.min, children: [
+            Icon(Icons.verified_rounded, size: 13, color: Colors.green[700]),
+            const SizedBox(width: 4),
+            Text(
+              'Verified',
+              style: TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w700,
+                color: Colors.green[700],
+              ),
+            ),
+          ]),
+        );
+
+      case 'under_review':
+        return Container(
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+          decoration: BoxDecoration(
+            color: Colors.blue.withValues(alpha: 0.1),
+            borderRadius: BorderRadius.circular(20),
+          ),
+          child: Row(mainAxisSize: MainAxisSize.min, children: [
+            SizedBox(
+              width: 12,
+              height: 12,
+              child: CircularProgressIndicator(
+                strokeWidth: 1.5,
+                color: Colors.blue[700],
+              ),
+            ),
+            const SizedBox(width: 6),
+            Text(
+              'Under Review',
+              style: TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w700,
+                color: Colors.blue[700],
+              ),
+            ),
+          ]),
+        );
+
+      case 'rejected':
+        return Container(
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+          decoration: BoxDecoration(
+            color: Colors.red.withValues(alpha: 0.1),
+            borderRadius: BorderRadius.circular(20),
+          ),
+          child: Row(mainAxisSize: MainAxisSize.min, children: [
+            Icon(Icons.cancel_outlined, size: 13, color: Colors.red[700]),
+            const SizedBox(width: 4),
+            Text(
+              'Rejected',
+              style: TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w700,
+                color: Colors.red[700],
+              ),
+            ),
+          ]),
+        );
+
+      default: // pending / not_submitted
+        return Container(
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+          decoration: BoxDecoration(
+            color: Colors.orange.withValues(alpha: 0.1),
+            borderRadius: BorderRadius.circular(20),
+          ),
+          child: Row(mainAxisSize: MainAxisSize.min, children: [
+            Icon(Icons.hourglass_top_rounded,
+                size: 13, color: Colors.orange[700]),
+            const SizedBox(width: 4),
+            Text(
+              'Pending Verification',
+              style: TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w700,
+                color: Colors.orange[700],
+              ),
+            ),
+          ]),
+        );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
-    final status = ctrl.licenseStatus;
-
-    final Color statusColor;
-    final String statusLabel;
-    if (status == 'verified') {
-      statusColor = Colors.green;
-      statusLabel = 'Verified';
-    } else if (status == 'rejected') {
-      statusColor = Colors.red;
-      statusLabel = 'Rejected';
-    } else {
-      statusColor = Colors.orange;
-      statusLabel = 'Pending';
-    }
+    final status = ctrl.verificationStatus;
+    final showUploadButton =
+        ctrl.licenseUrl.isEmpty || status == 'rejected';
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -519,7 +628,7 @@ class VerificationCard extends StatelessWidget {
         ProfileCard(
           child: Column(
             children: [
-              // National ID row
+              // ── National ID ────────────────────────────────────────────────
               Padding(
                 padding: EdgeInsets.symmetric(
                   horizontal: AppSizes.pw16,
@@ -541,28 +650,32 @@ class VerificationCard extends StatelessWidget {
                       ),
                     ),
                     SizedBox(width: AppSizes.pw12),
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'National ID',
-                          style: TextStyle(
-                            fontSize: 11,
-                            color: Colors.grey[500],
-                            fontWeight: FontWeight.w500,
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'National ID',
+                            style: TextStyle(
+                              fontSize: 11,
+                              color: Colors.grey[500],
+                              fontWeight: FontWeight.w500,
+                            ),
                           ),
-                        ),
-                        const SizedBox(height: 2),
-                        Text(
-                          ctrl.maskedNationalId,
-                          style: TextStyle(
-                            fontSize: AppSizes.sp14,
-                            fontWeight: FontWeight.w600,
-                            letterSpacing: 2,
-                            color: LightColors.textColor,
+                          const SizedBox(height: 2),
+                          Text(
+                            ctrl.maskedNationalId,
+                            style: TextStyle(
+                              fontSize: AppSizes.sp14,
+                              fontWeight: FontWeight.w600,
+                              letterSpacing: 2,
+                              color: LightColors.textColor,
+                            ),
                           ),
-                        ),
-                      ],
+                          const SizedBox(height: 6),
+                          _statusBadge(status),
+                        ],
+                      ),
                     ),
                   ],
                 ),
@@ -570,7 +683,7 @@ class VerificationCard extends StatelessWidget {
               Divider(
                   height: 1, indent: 68, endIndent: 16, color: Colors.grey[100]),
 
-              // Driving license row
+              // ── Driving License ────────────────────────────────────────────
               Padding(
                 padding: EdgeInsets.symmetric(
                   horizontal: AppSizes.pw16,
@@ -604,24 +717,10 @@ class VerificationCard extends StatelessWidget {
                               fontWeight: FontWeight.w500,
                             ),
                           ),
-                          const SizedBox(height: 4),
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 10,
-                              vertical: 3,
-                            ),
-                            decoration: BoxDecoration(
-                              color: statusColor.withValues(alpha: 0.1),
-                              borderRadius: BorderRadius.circular(20),
-                            ),
-                            child: Text(
-                              statusLabel,
-                              style: TextStyle(
-                                color: statusColor,
-                                fontSize: 12,
-                                fontWeight: FontWeight.w700,
-                              ),
-                            ),
+                          const SizedBox(height: 6),
+                          _statusBadge(
+                            status,
+                            isDocUploaded: ctrl.licenseUrl.isNotEmpty,
                           ),
                         ],
                       ),
@@ -650,7 +749,7 @@ class VerificationCard extends StatelessWidget {
                 ),
               ),
 
-              if (status != 'verified') ...[
+              if (showUploadButton) ...[
                 Divider(height: 1, color: Colors.grey[100]),
                 Material(
                   color: Colors.transparent,
@@ -687,9 +786,9 @@ class VerificationCard extends StatelessWidget {
                                 ),
                                 const SizedBox(width: 8),
                                 Text(
-                                  status == 'rejected'
-                                      ? 'Re-upload License'
-                                      : 'Upload License',
+                                  ctrl.licenseUrl.isEmpty
+                                      ? 'Upload License'
+                                      : 'Re-upload License',
                                   style: const TextStyle(
                                     color: LightColors.primaryColor,
                                     fontSize: 14,
