@@ -1,3 +1,4 @@
+import 'package:cargo/core/controllers/favorites_notifier.dart';
 import 'package:cargo/core/controllers/user_avatar_controller.dart';
 import 'package:cargo/core/dataSource/local_data/preferences_manager.dart';
 import 'package:cargo/services/stripe_service.dart';
@@ -30,8 +31,11 @@ class MyApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return ChangeNotifierProvider(
-      create: (_) => UserAvatarController(),
+    return MultiProvider(
+      providers: [
+        ChangeNotifierProvider(create: (_) => UserAvatarController()),
+        ChangeNotifierProvider(create: (_) => FavoritesNotifier()),
+      ],
       child: ScreenUtilInit(
         designSize: const Size(375, 832),
         minTextAdapt: true,
