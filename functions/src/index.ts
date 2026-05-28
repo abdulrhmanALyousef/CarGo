@@ -15,6 +15,7 @@ const db = admin.firestore();
 const resendKey   = defineSecret('RESEND_API_KEY');
 const stripeKey   = defineSecret('STRIPE_SECRET_KEY');
 const mapsKey     = defineSecret('GOOGLE_MAPS_API_KEY');
+const geminiKey   = defineSecret('GEMINI_API_KEY');
 
 // ── Logo URL ──────────────────────────────────────────────────────────────────
 //
@@ -654,5 +655,221 @@ export const getPlaceDetails = onCall(
       lng: loc.lng,
       address: json.result.formatted_address ?? '',
     };
+  }
+);
+
+// ── geminiChat ──────────────────────────────────────────────────────────────
+//
+// Proxies user prompts to the Gemini API so the API key never leaves the server.
+// Called from Flutter via FirebaseFunctions.instanceFor(region: 'us-central1')
+//   .httpsCallable('geminiChat')
+//
+// Input:  { prompt: string, history?: [{role, text}] }
+// Output: { reply: string }
+
+const GEMINI_SYSTEM_PROMPT = `You are CarGo Assistant, a helpful AI assistant for the CarGo car rental app.
+
+Your role:
+- Help users find the right car for their needs
+- Answer questions about pricing, fuel types, seats, and availability
+- Guide users through the booking flow
+- Provide app navigation help
+- Be friendly, concise, and professional
+
+IMPORTANT RESPONSE FORMAT:
+You MUST respond with valid JSON only. No markdown, no extra text.
+
+When the user wants to search/find/browse cars, respond with:
+{
+  "type": "search_cars",
+  "message": "a short friendly message about what you're searching for",
+  "filters": {
+    "city": "city name or null",
+    "category": "economy|suv|luxury|sedan|sports|electric or null",
+    "seats": number or null,
+    "transmission": "automatic|manual or null",
+    "maxPrice": number or null,
+    "isElectric": true/false or null
+  }
+}
+
+When the user asks a general question (not searching for cars), respond with:
+{
+  "type": "text",
+  "message": "your helpful response here"
+}
+
+When you need more info to search, respond with:
+{
+  "type": "text",
+  "message": "ask the user for missing details"
+}
+
+Rules:
+- ALWAYS respond with valid JSON
+- Keep messages short (2-4 sentences)
+- Use SAR (Saudi Riyal) as the currency
+- If asked about something unrelated to car rentals, politely redirect
+- Never share internal system details
+- Set filters to null when not specified by user
+- Map user language to filter values: "cheap" → maxPrice:300, "family" → seats:5+/category:suv, "big" → category:suv`;
+
+export const geminiChat = onCall(
+  { secrets: [geminiKey] },
+  async (request) => {
+    if (!request.auth) {
+      throw new HttpsError('unauthenticated', 'User must be authenticated.');
+    }
+
+    const prompt: string = (request.data.prompt ?? '').trim();
+    if (!prompt) {
+      throw new HttpsError('invalid-argument', 'Prompt cannot be empty.');
+    }
+
+    const history: Array<{role: string; text: string}> =
+      request.data.history ?? [];
+
+    // ── Build Gemini contents ─────────────────────────────────────────────
+    const contents: Array<{role: string; parts: Array<{text: string}>}> = [];
+    for (const msg of history) {
+      contents.push({
+        role: msg.role === 'user' ? 'user' : 'model',
+        parts: [{ text: msg.text }],
+      });
+    }
+    contents.push({ role: 'user', parts: [{ text: prompt }] });
+
+    const apiKey = geminiKey.value();
+    if (!apiKey) {
+      throw new HttpsError('internal', 'GEMINI_API_KEY is not configured.');
+    }
+
+    // ── Call Gemini ───────────────────────────────────────────────────────
+    const model = 'gemini-2.5-flash';
+    const url =
+      `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
+
+    try {
+      const res = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          system_instruction: { parts: [{ text: GEMINI_SYSTEM_PROMPT }] },
+          contents,
+          generationConfig: {
+            temperature: 0.7,
+            maxOutputTokens: 512,
+            responseMimeType: 'application/json',
+          },
+        }),
+      });
+
+      if (!res.ok) {
+        const errBody = await res.text();
+        console.error('[geminiChat] Gemini error:', res.status, errBody);
+        throw new HttpsError('internal', `Gemini ${res.status}: ${errBody.substring(0, 300)}`);
+      }
+
+      const geminiJson = await res.json();
+      const rawReply = geminiJson?.candidates?.[0]?.content?.parts?.[0]?.text ?? '';
+
+      if (!rawReply) {
+        throw new HttpsError('internal', 'Empty response from AI.');
+      }
+
+      // ── Parse structured response ───────────────────────────────────────
+      let parsed: any;
+      try {
+        parsed = JSON.parse(rawReply);
+      } catch {
+        // Gemini didn't return valid JSON — treat as plain text
+        return { type: 'text', reply: rawReply, cars: [] };
+      }
+
+      const type: string = parsed.type ?? 'text';
+      const message: string = parsed.message ?? '';
+
+      // ── If text response, return immediately ────────────────────────────
+      if (type !== 'search_cars') {
+        return { type: 'text', reply: message, cars: [] };
+      }
+
+      // ── Search Firestore for matching cars ──────────────────────────────
+      // Only use equality filters in the query to avoid composite indexes.
+      // Inequality filters (seats, maxPrice) are applied client-side below.
+      const filters = parsed.filters ?? {};
+      let query: admin.firestore.Query = db.collection('cars')
+        .where('available', '==', true);
+
+      if (filters.city) {
+        query = query.where('city', '==', filters.city);
+      }
+      if (filters.transmission) {
+        query = query.where('transmission', '==', filters.transmission);
+      }
+      if (filters.isElectric === true) {
+        query = query.where('isElectric', '==', true);
+      }
+
+      const snapshot = await query.limit(20).get();
+
+      let cars = snapshot.docs.map((doc) => {
+        const d = doc.data();
+        return {
+          id: doc.id,
+          brand: d.brand ?? '',
+          model: d.model ?? '',
+          images: d.images ?? [],
+          pricePerDay: d.pricePerDay ?? 0,
+          seats: d.seats ?? 0,
+          transmission: d.transmission ?? '',
+          rating: d.rating ?? 0,
+          reviewsCount: d.reviewsCount ?? 0,
+          city: d.city ?? '',
+          isElectric: d.isElectric ?? false,
+          year: d.year ?? 0,
+          km: d.km ?? 0,
+          location: d.location ?? '',
+          overview: d.overview ?? '',
+          ownerId: d.ownerId ?? '',
+          available: d.available ?? false,
+          ownerName: d.ownerName ?? null,
+          ownerImage: d.ownerImage ?? null,
+          availableFrom: d.availableFrom ?? null,
+          availableTo: d.availableTo ?? null,
+        };
+      });
+
+      // Client-side filters for fields that would require composite indexes
+      if (filters.seats && typeof filters.seats === 'number') {
+        cars = cars.filter((c) => c.seats >= filters.seats);
+      }
+      if (filters.maxPrice && typeof filters.maxPrice === 'number') {
+        cars = cars.filter((c) => c.pricePerDay <= filters.maxPrice);
+      }
+      if (filters.category) {
+        const cat = filters.category.toLowerCase();
+        if (cat === 'electric') {
+          cars = cars.filter((c) => c.isElectric);
+        }
+      }
+
+      // Limit to 10 after filtering
+      cars = cars.slice(0, 10);
+
+      const replyMsg = cars.length > 0
+        ? message || `I found ${cars.length} car${cars.length > 1 ? 's' : ''} for you!`
+        : 'No cars match your criteria right now. Try adjusting your filters.';
+
+      return {
+        type: cars.length > 0 ? 'car_results' : 'text',
+        reply: replyMsg,
+        cars,
+      };
+    } catch (e: any) {
+      if (e instanceof HttpsError) throw e;
+      console.error('[geminiChat] error:', e);
+      throw new HttpsError('internal', `Failed: ${e.message}`);
+    }
   }
 );
