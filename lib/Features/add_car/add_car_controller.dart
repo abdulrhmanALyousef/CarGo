@@ -1,4 +1,4 @@
-// ignore_for_file: avoid_print, use_build_context_synchronously
+// ignore_for_file: use_build_context_synchronously
 
 import 'dart:io';
 import 'package:flutter/material.dart';
@@ -7,6 +7,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:cargo/models/car_model.dart';
+import 'package:cargo/core/errors/error_handler.dart';
 
 class AddCarController extends ChangeNotifier {
   // ── Form controllers ────────────────────────────────────────────────────────
@@ -246,13 +247,8 @@ class AddCarController extends ChangeNotifier {
       await docRef.set(data);
 
       return true;
-    } on FirebaseException catch (e) {
-      print('[AddCarController] Firebase error: $e');
-      _error = 'Save failed: ${e.message ?? e.code}';
-      return false;
     } catch (e) {
-      print('[AddCarController] error: $e');
-      _error = e.toString();
+      _error = ErrorHandler.handle(e, tag: 'AddCarController').userMessage;
       return false;
     } finally {
       _isLoading = false;

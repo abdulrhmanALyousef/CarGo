@@ -1,6 +1,6 @@
-import 'package:cloud_functions/cloud_functions.dart';
 import 'package:flutter/material.dart';
 import 'package:cargo/core/dataSource/remote_data/firebase_service.dart';
+import 'package:cargo/core/errors/error_handler.dart';
 import 'package:cargo/Features/auth/forgot_password_otp_screen.dart';
 
 class ForgotPasswordController extends ChangeNotifier {
@@ -41,7 +41,7 @@ class ForgotPasswordController extends ChangeNotifier {
         );
       }
     } catch (e) {
-      _setError(_extractError(e));
+      _setError(ErrorHandler.handle(e).userMessage);
     } finally {
       _isLoading = false;
       notifyListeners();
@@ -52,11 +52,6 @@ class ForgotPasswordController extends ChangeNotifier {
   void _setError(String msg) {
     _error = msg;
     notifyListeners();
-  }
-
-  String _extractError(Object e) {
-    if (e is FirebaseFunctionsException) return e.message ?? e.code;
-    return e.toString();
   }
 
   @override

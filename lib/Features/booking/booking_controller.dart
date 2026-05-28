@@ -1,4 +1,4 @@
-// ignore_for_file: avoid_print, use_build_context_synchronously
+// ignore_for_file: use_build_context_synchronously
 
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -6,6 +6,8 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:cargo/models/car_model.dart';
 import 'package:cargo/models/booking_model.dart';
 import 'package:cargo/core/theme/light_color.dart';
+import 'package:cargo/core/errors/error_handler.dart';
+import 'package:cargo/core/errors/app_messenger.dart';
 
 // ════════════════════════════════════════════════════════════════════════════
 // INLINE CALENDAR STRATEGY
@@ -34,10 +36,6 @@ class BookingController extends ChangeNotifier {
   BookingController({required this.car}) {
     final today = _dateOnly(DateTime.now());
     _focusedDay = today;
-
-    print('[BookingController] availableFrom: ${car.availableFrom}');
-    print('[BookingController] availableTo:   ${car.availableTo}');
-
     loadAvailability();
   }
 
@@ -49,7 +47,6 @@ class BookingController extends ChangeNotifier {
   TimeOfDay? _pickupTime;
   bool _isLoading = false;
   String? _error;
-  bool _firestoreRulesError = false;
 
   late DateTime _focusedDay;
 
@@ -66,7 +63,6 @@ class BookingController extends ChangeNotifier {
   TimeOfDay? get pickupTime => _pickupTime;
   bool get isLoading => _isLoading;
   String? get error => _error;
-  bool get firestoreRulesError => _firestoreRulesError;
   bool get isLoadingAvailability => _isLoadingAvailability;
   DateTime get focusedDay => _focusedDay;
 
@@ -155,8 +151,7 @@ class BookingController extends ChangeNotifier {
         }
       }
       _bookedDates = booked;
-    } catch (e) {
-      print('BookingController.loadAvailability error: $e');
+    } catch (_) {
       _bookedDates = {};
     } finally {
       _isLoadingAvailability = false;
@@ -310,18 +305,17 @@ class BookingController extends ChangeNotifier {
   // request. The renter pays from My Trips once the status becomes 'approved'.
   Future<bool> createBooking(BuildContext context) async {
     if (!isAuthenticated) {
-      _error = 'You must be logged in to book a car';
+      _error = 'You must be logged in to book a car.';
       notifyListeners();
-      _showError(context, _error!);
+      AppMessenger.showError(context, _error!);
       return false;
     }
 
-    // Owner cannot book their own car
     final currentUid = FirebaseAuth.instance.currentUser!.uid;
     if (car.ownerId == currentUid) {
-      _error = 'You cannot book your own car';
+      _error = 'You cannot book your own car.';
       notifyListeners();
-      _showError(context, _error!);
+      AppMessenger.showError(context, _error!);
       return false;
     }
 
@@ -329,37 +323,30 @@ class BookingController extends ChangeNotifier {
     if (validationError != null) {
       _error = validationError;
       notifyListeners();
-      _showError(context, validationError);
+      AppMessenger.showError(context, validationError);
       return false;
     }
 
     _isLoading = true;
-    _firestoreRulesError = false;
     _error = null;
     notifyListeners();
 
     try {
-      // Step 3 — prevent renter from booking two cars at the same time
-      print('[createBooking] Checking renter availability — userId: ${FirebaseAuth.instance.currentUser!.uid}');
       final renterBusy = await _hasRenterOverlap(_startDate!, _endDate!);
       if (renterBusy) {
-        _error =
-            'You already have an active booking that overlaps these dates. '
+        _error = 'You already have an active booking that overlaps these dates. '
             'Cancel or complete that trip before booking another.';
-        _showError(context, _error!);
+        AppMessenger.showError(context, _error!);
         return false;
       }
 
-      // Step 4 — check if car has a confirmed booking for these dates
-      print('[createBooking] Checking car confirmed bookings — carId: ${car.id}');
       final carTaken = await _hasCarConfirmedOverlap(_startDate!, _endDate!);
       if (carTaken) {
-        _error = 'This car is already booked for the selected dates';
-        _showError(context, _error!);
+        _error = 'This car is already booked for the selected dates.';
+        AppMessenger.showError(context, _error!);
         return false;
       }
 
-      // Step 5 — write the pending booking request (no payment)
       final currentUser = FirebaseAuth.instance.currentUser!;
       final docRef = _firestore.collection('bookings').doc();
 
@@ -376,35 +363,11 @@ class BookingController extends ChangeNotifier {
         createdAt: DateTime.now(),
       );
 
-      print('[createBooking] Writing pending booking request:');
-      print('  bookingId:  ${booking.bookingId}');
-      print('  userId:     ${booking.userId}');
-      print('  carId:      ${booking.carId}');
-      print('  startDate:  ${booking.startDate}');
-      print('  endDate:    ${booking.endDate}');
-      print('  pickupTime: ${booking.pickupTime}');
-      print('  totalPrice: ${booking.totalPrice}');
-
       await docRef.set(booking.toMap());
-      print('[createBooking] Booking request created: ${docRef.id}');
-
       return true;
-    } on FirebaseException catch (e) {
-      print('[createBooking] FirebaseException [${e.code}]: ${e.message}');
-      if (e.code == 'permission-denied') {
-        _firestoreRulesError = true;
-        _error =
-            'Access denied [permission-denied]. Fix Firestore rules:\n'
-            'allow read, write: if request.auth != null;';
-      } else {
-        _error = 'Firebase error [${e.code}]: ${e.message ?? e.toString()}';
-      }
-      _showError(context, _error!);
-      return false;
     } catch (e) {
-      print('[createBooking] Unexpected error: $e');
-      _error = e.toString();
-      _showError(context, _error!);
+      _error = ErrorHandler.handle(e, tag: 'createBooking').userMessage;
+      AppMessenger.showError(context, _error!);
       return false;
     } finally {
       _isLoading = false;
@@ -412,16 +375,4 @@ class BookingController extends ChangeNotifier {
     }
   }
 
-  void _showError(BuildContext context, String message) {
-    if (context.mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(message),
-          backgroundColor: Colors.red.shade700,
-          duration: const Duration(seconds: 6),
-          behavior: SnackBarBehavior.floating,
-        ),
-      );
-    }
-  }
 }

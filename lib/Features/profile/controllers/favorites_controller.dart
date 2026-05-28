@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../../core/dataSource/remote_data/firebase_service.dart';
+import '../../../core/errors/error_handler.dart';
+import '../../../core/errors/app_messenger.dart';
 import '../../../models/car_model.dart';
 
 class FavoritesController extends ChangeNotifier {
@@ -24,8 +26,7 @@ class FavoritesController extends ChangeNotifier {
       final data = await FirebaseService().getFavoriteCars();
       _favorites = data.map((json) => Car.fromJson(json)).toList();
     } catch (e) {
-      _error = e.toString();
-      debugPrint('[FavoritesController] loadFavorites: $e');
+      _error = ErrorHandler.handle(e, tag: 'FavoritesController').userMessage;
     } finally {
       _isLoading = false;
       notifyListeners();
@@ -39,12 +40,7 @@ class FavoritesController extends ChangeNotifier {
       notifyListeners();
     } catch (e) {
       if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Failed to remove: $e'),
-            backgroundColor: Colors.red,
-          ),
-        );
+        AppMessenger.showError(context, 'Failed to remove from favorites. Please try again.');
       }
     }
   }

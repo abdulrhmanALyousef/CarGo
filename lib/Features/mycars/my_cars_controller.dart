@@ -1,4 +1,4 @@
-// ignore_for_file: avoid_print, use_build_context_synchronously
+// ignore_for_file: use_build_context_synchronously
 
 import 'dart:async';
 
@@ -6,6 +6,8 @@ import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:cargo/models/car_model.dart';
+import 'package:cargo/core/errors/error_handler.dart';
+import 'package:cargo/core/errors/app_messenger.dart';
 
 class MyCarsController extends ChangeNotifier {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
@@ -59,8 +61,7 @@ class MyCarsController extends ChangeNotifier {
         notifyListeners();
       },
       onError: (e) {
-        print('[MyCarsController] stream error: $e');
-        _error = e.toString();
+        _error = ErrorHandler.handle(e, tag: 'MyCarsController').userMessage;
         _isLoading = false;
         notifyListeners();
       },
@@ -84,19 +85,9 @@ class MyCarsController extends ChangeNotifier {
         'available': true,
       });
 
-      if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Listing resumed — visible to renters again.'),
-            backgroundColor: Color(0xFF1565C0),
-          ),
-        );
-      }
-    } on FirebaseException catch (e) {
-      _showError(context,
-          'Firebase error [${e.code}]: ${e.message ?? e.toString()}');
+      AppMessenger.showInfo(context, 'Listing resumed — visible to renters again.');
     } catch (e) {
-      _showError(context, e.toString());
+      AppMessenger.showError(context, ErrorHandler.handle(e, tag: 'resumeListing').userMessage);
     }
   }
 
@@ -113,26 +104,17 @@ class MyCarsController extends ChangeNotifier {
         'rejectionReason': null,
       });
 
-      if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text(
-              'Delivery request submitted. A CarGo employee will verify your vehicle shortly.',
-            ),
-            backgroundColor: Color(0xFFE65100),
-            duration: Duration(seconds: 5),
-          ),
-        );
-      }
-    } on FirebaseException catch (e) {
-      _showError(context,
-          'Firebase error [${e.code}]: ${e.message ?? e.toString()}');
+      AppMessenger.showInfo(
+        context,
+        'Delivery request submitted. A CarGo employee will verify your vehicle shortly.',
+        color: const Color(0xFFE65100),
+        duration: const Duration(seconds: 5),
+      );
     } catch (e) {
-      _showError(context, e.toString());
+      AppMessenger.showError(context, ErrorHandler.handle(e, tag: 'confirmDelivery').userMessage);
     }
   }
 
-  /// Called when owner acknowledges a rejection and wants to re-deliver.
   Future<void> acknowledgeRejection(Car car, BuildContext context) async {
     try {
       await _firestore.collection('cars').doc(car.id).update({
@@ -142,21 +124,13 @@ class MyCarsController extends ChangeNotifier {
         'rejectionReason': null,
       });
 
-      if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content:
-                Text('Status reset. Please re-deliver your vehicle to the hub.'),
-            backgroundColor: Color(0xFF1565C0),
-            duration: Duration(seconds: 4),
-          ),
-        );
-      }
-    } on FirebaseException catch (e) {
-      _showError(context,
-          'Firebase error [${e.code}]: ${e.message ?? e.toString()}');
+      AppMessenger.showInfo(
+        context,
+        'Status reset. Please re-deliver your vehicle to the hub.',
+        duration: const Duration(seconds: 4),
+      );
     } catch (e) {
-      _showError(context, e.toString());
+      AppMessenger.showError(context, ErrorHandler.handle(e, tag: 'acknowledgeRejection').userMessage);
     }
   }
 
@@ -172,24 +146,9 @@ class MyCarsController extends ChangeNotifier {
       } else {
         update['available'] = false;
       }
-
       await _firestore.collection('cars').doc(car.id).update(update);
-    } on FirebaseException catch (e) {
-      _showError(context,
-          'Firebase error [${e.code}]: ${e.message ?? e.toString()}');
-    }
-  }
-
-  void _showError(BuildContext context, String message) {
-    if (context.mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(message),
-          backgroundColor: Colors.red.shade700,
-          duration: const Duration(seconds: 6),
-          behavior: SnackBarBehavior.floating,
-        ),
-      );
+    } catch (e) {
+      AppMessenger.showError(context, ErrorHandler.handle(e, tag: 'setHubStatus').userMessage);
     }
   }
 }

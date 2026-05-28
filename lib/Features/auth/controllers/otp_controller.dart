@@ -3,6 +3,8 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:cargo/core/dataSource/remote_data/firebase_service.dart';
 import 'package:cargo/core/dataSource/local_data/preferences_manager.dart';
+import 'package:cargo/core/errors/error_handler.dart';
+import 'package:cargo/core/errors/app_messenger.dart';
 import 'package:cargo/Features/Main/main_screen.dart';
 
 class OtpController extends ChangeNotifier {
@@ -94,14 +96,12 @@ class OtpController extends ChangeNotifier {
         if (context.mounted) await _afterSuccess(context, cred.user);
       },
       onFailed: (e) {
-        _showError(context, e.message ?? 'Failed to resend code');
+        AppMessenger.showError(context, ErrorHandler.handle(e).userMessage);
       },
       onCodeSent: (newVerificationId, _) {
         verificationId = newVerificationId;
         _startTimer();
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('New code sent!')),
-        );
+        AppMessenger.showSuccess(context, 'New verification code sent!');
         notifyListeners();
       },
       onTimeout: (id) {
@@ -124,10 +124,8 @@ class OtpController extends ChangeNotifier {
         smsCode: otpCode,
       );
       if (context.mounted) await _afterSuccess(context, cred.user);
-    } on FirebaseAuthException catch (e) {
-      if (context.mounted) _showError(context, e.message ?? 'Invalid code, please try again');
     } catch (e) {
-      if (context.mounted) _showError(context, 'Verification failed: ${e.toString()}');
+      if (context.mounted) AppMessenger.showError(context, ErrorHandler.handle(e).userMessage);
     } finally {
       _isLoading = false;
       notifyListeners();
@@ -145,15 +143,8 @@ class OtpController extends ChangeNotifier {
         );
       }
     } else {
-      _showError(context, 'Login failed');
+      AppMessenger.showError(context, 'Unable to sign in. Please try again.');
     }
-  }
-
-  void _showError(BuildContext context, String msg) {
-    if (!context.mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(msg), backgroundColor: Colors.red),
-    );
   }
 
   @override

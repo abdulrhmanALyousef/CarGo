@@ -1,8 +1,9 @@
 import 'dart:io';
-import 'package:cloud_functions/cloud_functions.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import '../../../core/dataSource/remote_data/firebase_service.dart';
+import '../../../core/errors/error_handler.dart';
+import '../../../core/errors/app_messenger.dart';
 
 class OnboardingController extends ChangeNotifier {
   // ── Role ──────────────────────────────────────────────────────────────────
@@ -145,12 +146,12 @@ class OnboardingController extends ChangeNotifier {
     if (!formKey.currentState!.validate()) return;
 
     if (isRenter && !hasDrivingLicense) {
-      _showError(context, 'Please upload your driving license');
+      AppMessenger.showError(context, 'Please upload your driving license to continue.');
       return;
     }
 
     if (!_acceptedTerms) {
-      _showError(context, 'Please accept the Terms and Conditions');
+      AppMessenger.showError(context, 'Please accept the Terms and Conditions to continue.');
       return;
     }
 
@@ -161,14 +162,14 @@ class OnboardingController extends ChangeNotifier {
       final phoneExists =
           await FirebaseService().isPhoneExists(phoneController.text.trim());
       if (phoneExists) {
-        if (context.mounted) _showError(context, 'This phone number is already registered');
+        if (context.mounted) AppMessenger.showError(context, 'This phone number is already registered.');
         return;
       }
 
       final nationalIdExists = await FirebaseService()
           .isNationalIdExists(nationalIdController.text.trim());
       if (nationalIdExists) {
-        if (context.mounted) _showError(context, 'This national ID is already registered');
+        if (context.mounted) AppMessenger.showError(context, 'This national ID is already registered.');
         return;
       }
 
@@ -176,23 +177,11 @@ class OnboardingController extends ChangeNotifier {
 
       if (context.mounted) navigateToOtp();
     } catch (e) {
-      if (context.mounted) _showError(context, _extractError(e));
+      if (context.mounted) AppMessenger.showError(context, ErrorHandler.handle(e).userMessage);
     } finally {
       _isLoading = false;
       notifyListeners();
     }
-  }
-
-  String _extractError(Object e) {
-    if (e is FirebaseFunctionsException) return e.message ?? e.code;
-    return e.toString();
-  }
-
-  void _showError(BuildContext context, String msg) {
-    if (!context.mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(msg), backgroundColor: Colors.red),
-    );
   }
 
   @override

@@ -265,41 +265,8 @@ class BookingScreen extends StatelessWidget {
             ),
           ],
 
-          // ── Firestore Rules Error ──────────────────────────────────────
-          if (ctrl.firestoreRulesError) ...[
-            const SizedBox(height: 12),
-            Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: Colors.red.shade50,
-                borderRadius: BorderRadius.circular(10),
-                border: Border.all(color: Colors.red.shade200),
-              ),
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Icon(Icons.warning_amber_rounded,
-                      color: Colors.red.shade700, size: 18),
-                  const SizedBox(width: 10),
-                  Flexible(
-                    child: Text(
-                      'Server access denied. Fix in Firebase Console → '
-                      'Firestore → Rules:\n'
-                      'allow read: if request.auth != null;\n'
-                      'allow write: if request.auth != null;',
-                      style: TextStyle(
-                          fontSize: 12,
-                          color: Colors.red.shade800,
-                          height: 1.5),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ],
-
-          // ── Validation Error ───────────────────────────────────────────
-          if (ctrl.error != null && !ctrl.firestoreRulesError) ...[
+          // ── Validation / Error ────────────────────────────────────────
+          if (ctrl.error != null) ...[
             const SizedBox(height: 10),
             Text(ctrl.error!,
                 style: const TextStyle(fontSize: 13, color: Colors.red)),

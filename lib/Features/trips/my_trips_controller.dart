@@ -1,4 +1,4 @@
-// ignore_for_file: avoid_print, use_build_context_synchronously
+// ignore_for_file: use_build_context_synchronously
 
 import 'dart:async';
 
@@ -9,6 +9,8 @@ import 'package:cargo/models/booking_model.dart';
 import 'package:cargo/models/car_model.dart';
 import 'package:cargo/services/stripe_service.dart';
 import 'package:cargo/core/dataSource/remote_data/firebase_service.dart';
+import 'package:cargo/core/errors/error_handler.dart';
+import 'package:cargo/core/errors/app_messenger.dart';
 import 'package:cargo/Features/chats/presentation/chat_screen.dart';
 
 // ── Trip Entry ────────────────────────────────────────────────────────────────
@@ -83,7 +85,7 @@ class MyTripsController extends ChangeNotifier {
         .snapshots()
         .listen(
           _handleSnapshot,
-          onError: (e) => print('[MyTripsController] stream error: $e'),
+          onError: (e) => ErrorHandler.handle(e, tag: 'MyTripsController.stream'),
         );
   }
 
@@ -194,9 +196,7 @@ class MyTripsController extends ChangeNotifier {
           if (carDoc.exists) {
             car = Car.fromJson({'id': carDoc.id, ...carDoc.data()!});
           }
-        } catch (e) {
-          print('[MyTripsController] Could not fetch car ${booking.carId}: $e');
-        }
+        } catch (_) {}
         entries.add(TripEntry(booking: booking, car: car));
       }
 
@@ -207,8 +207,7 @@ class MyTripsController extends ChangeNotifier {
 
       _trips = entries;
     } catch (e) {
-      print('[MyTripsController] fetchTrips error: $e');
-      _error = e.toString();
+      _error = ErrorHandler.handle(e, tag: 'fetchTrips').userMessage;
     } finally {
       _isLoading = false;
       notifyListeners();
@@ -279,20 +278,9 @@ class MyTripsController extends ChangeNotifier {
       _trips.removeWhere((e) => e.booking.bookingId == bookingId);
       notifyListeners();
 
-      if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Booking cancelled.'),
-            duration: Duration(seconds: 3),
-          ),
-        );
-      }
-    } on FirebaseException catch (e) {
-      print('[MyTripsController] cancelBooking FirebaseException: $e');
-      _showError(context, 'Failed to cancel: ${e.message ?? e.code}');
+      AppMessenger.showInfo(context, 'Booking cancelled.', duration: const Duration(seconds: 3));
     } catch (e) {
-      print('[MyTripsController] cancelBooking error: $e');
-      _showError(context, 'Failed to cancel booking. Please try again.');
+      AppMessenger.showError(context, ErrorHandler.handle(e, tag: 'cancelBooking').userMessage);
     } finally {
       _actionBookingId = null;
       notifyListeners();
@@ -314,28 +302,18 @@ class MyTripsController extends ChangeNotifier {
     notifyListeners();
 
     try {
-      // Step 1 — re-check car availability (only confirmed bookings lock dates)
-      print('[payForBooking] Checking car confirmed bookings — carId: ${entry.booking.carId}');
       final conflict = await _hasCarConfirmedOverlap(entry.booking);
       if (conflict) {
-        _showError(
+        AppMessenger.showError(
           context,
-          'This car has just been confirmed for another booking on those dates. '
-          'Your request can no longer be completed.',
+          'This car has just been booked for those dates. Your request can no longer be completed.',
         );
         return false;
       }
 
-      // Step 2 — Stripe payment
-      print('[payForBooking] Launching Stripe payment...');
       final paid = await _stripe.verifyCard(context);
-      if (!paid) {
-        print('[payForBooking] User cancelled payment');
-        return false;
-      }
-      print('[payForBooking] Payment successful');
+      if (!paid) return false;
 
-      // Step 3 — confirm in Firestore + set lifecycle fields
       await _firestore
           .collection('bookings')
           .doc(entry.booking.bookingId)
@@ -345,16 +323,13 @@ class MyTripsController extends ChangeNotifier {
         'paymentStatus': 'paid',
       });
 
-      // Step 3b — mark car as reserved (best-effort; Cloud Function also handles this)
       try {
         await _firestore.collection('cars').doc(entry.booking.carId).update({
           'hubStatus': 'reserved',
           'status': 'reserved',
           'available': false,
         });
-      } catch (e) {
-        print('[payForBooking] Car status update failed (Cloud Function will handle): $e');
-      }
+      } catch (_) {}
 
       // Step 4 — update local state
       final idx = _trips.indexWhere(
@@ -370,24 +345,14 @@ class MyTripsController extends ChangeNotifier {
       }
       notifyListeners();
 
-      if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Payment successful! Your booking is now confirmed.'),
-            backgroundColor: Colors.green,
-            duration: Duration(seconds: 4),
-          ),
-        );
-      }
-
+      AppMessenger.showSuccess(
+        context,
+        'Payment successful! Your booking is now confirmed.',
+        duration: const Duration(seconds: 4),
+      );
       return true;
-    } on FirebaseException catch (e) {
-      print('[payForBooking] FirebaseException [${e.code}]: ${e.message}');
-      _showError(context, 'Firebase error [${e.code}]: ${e.message ?? e.toString()}');
-      return false;
     } catch (e) {
-      print('[payForBooking] Unexpected error: $e');
-      _showError(context, e.toString());
+      AppMessenger.showError(context, ErrorHandler.handle(e, tag: 'payForBooking').userMessage);
       return false;
     } finally {
       _actionBookingId = null;
@@ -498,16 +463,4 @@ class MyTripsController extends ChangeNotifier {
 
   DateTime _dateOnly(DateTime d) => DateTime(d.year, d.month, d.day);
 
-  void _showError(BuildContext context, String message) {
-    if (context.mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(message),
-          backgroundColor: Colors.red.shade700,
-          duration: const Duration(seconds: 6),
-          behavior: SnackBarBehavior.floating,
-        ),
-      );
-    }
-  }
 }

@@ -5,6 +5,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:cargo/core/widgets/location_sheet.dart';
 import 'package:cargo/core/theme/light_color.dart';
+import 'package:cargo/core/errors/error_handler.dart';
 import 'package:cargo/models/car_model.dart';
 
 class HomeController extends ChangeNotifier {
@@ -120,7 +121,7 @@ class HomeController extends ChangeNotifier {
         }
       },
       onError: (e) {
-        _carsError = e.toString();
+        _carsError = ErrorHandler.handle(e, tag: 'HomeController').userMessage;
         _isLoadingCars = false;
         notifyListeners();
       },

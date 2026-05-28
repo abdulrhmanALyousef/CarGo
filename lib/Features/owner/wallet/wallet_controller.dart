@@ -1,10 +1,10 @@
-// ignore_for_file: avoid_print
-
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cargo/models/wallet_model.dart';
 import 'package:cargo/core/dataSource/remote_data/firebase_service.dart';
+import 'package:cargo/core/errors/error_handler.dart';
+import 'package:cargo/core/errors/app_messenger.dart';
 
 class WalletController extends ChangeNotifier {
   final _service = FirebaseService();
@@ -39,7 +39,7 @@ class WalletController extends ChangeNotifier {
         _wallet = w;
         notifyListeners();
       },
-      onError: (e) => print('[WalletController] stream error: $e'),
+      onError: (e) => ErrorHandler.handle(e, tag: 'WalletController.stream'),
     );
 
     await _loadHistory(ownerId);
@@ -68,8 +68,7 @@ class WalletController extends ChangeNotifier {
       _transactions = results[0] as List<TransactionModel>;
       _withdrawals = results[1] as List<WithdrawalModel>;
     } catch (e) {
-      print('[WalletController] loadHistory error: $e');
-      _error = e.toString();
+      _error = ErrorHandler.handle(e, tag: 'WalletController.loadHistory').userMessage;
     }
   }
 
@@ -95,16 +94,7 @@ class WalletController extends ChangeNotifier {
       return true;
     } catch (e) {
       if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              e.toString().contains('Insufficient')
-                  ? 'Insufficient balance'
-                  : 'Withdrawal failed. Try again.',
-            ),
-            backgroundColor: Colors.red,
-          ),
-        );
+        AppMessenger.showError(context, ErrorHandler.handle(e, tag: 'requestWithdrawal').userMessage);
       }
       return false;
     }
