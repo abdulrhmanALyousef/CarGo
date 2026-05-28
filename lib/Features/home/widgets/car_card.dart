@@ -1,5 +1,7 @@
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:cargo/core/controllers/favorites_notifier.dart';
+import 'package:cargo/core/widgets/login_required_sheet.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:shimmer/shimmer.dart';
@@ -80,8 +82,13 @@ class CarCard extends StatelessWidget {
                   right: 12,
                   child: GestureDetector(
                     behavior: HitTestBehavior.opaque,
-                    onTap: () =>
-                        context.read<FavoritesNotifier>().toggle(model.id),
+                    onTap: () {
+                      if (FirebaseAuth.instance.currentUser == null) {
+                        showLoginRequiredSheet(context);
+                      } else {
+                        context.read<FavoritesNotifier>().toggle(model.id);
+                      }
+                    },
                     child: Container(
                       width: 34,
                       height: 34,
