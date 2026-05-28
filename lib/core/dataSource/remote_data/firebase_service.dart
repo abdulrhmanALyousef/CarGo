@@ -443,6 +443,54 @@ class FirebaseService {
     });
   }
 
+  // ── Notifications ──────────────────────────────────────────────────────────
+
+  /// Saves or refreshes the FCM token for the given user.
+  Future<void> saveFcmToken({
+    required String uid,
+    required String token,
+  }) async {
+    await _firestore.collection('users').doc(uid).update({
+      'fcmToken': token,
+      'fcmUpdatedAt': FieldValue.serverTimestamp(),
+    });
+  }
+
+  /// Streams all notifications for [userId], newest first.
+  Stream<List<Map<String, dynamic>>> streamNotifications(String userId) {
+    return _firestore
+        .collection('notifications')
+        .where('userId', isEqualTo: userId)
+        .orderBy('createdAt', descending: true)
+        .limit(50)
+        .snapshots()
+        .map((s) => s.docs
+            .map((d) => {'id': d.id, ...d.data()})
+            .toList());
+  }
+
+  /// Marks a single notification as read.
+  Future<void> markNotificationRead(String notificationId) async {
+    await _firestore
+        .collection('notifications')
+        .doc(notificationId)
+        .update({'isRead': true});
+  }
+
+  /// Marks all unread notifications for [userId] as read.
+  Future<void> markAllNotificationsRead(String userId) async {
+    final snap = await _firestore
+        .collection('notifications')
+        .where('userId', isEqualTo: userId)
+        .where('isRead', isEqualTo: false)
+        .get();
+    final batch = _firestore.batch();
+    for (final doc in snap.docs) {
+      batch.update(doc.reference, {'isRead': true});
+    }
+    await batch.commit();
+  }
+
   /// Called when a booking transitions to 'completed'.
   /// Credits the owner 90% of the booking total and logs a payout transaction.
   /// A [walletSettled] guard on the booking document prevents duplicate credits.

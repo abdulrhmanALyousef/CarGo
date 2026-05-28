@@ -4,6 +4,7 @@ import 'package:cargo/core/dataSource/remote_data/firebase_service.dart';
 import 'package:cargo/core/dataSource/local_data/preferences_manager.dart';
 import 'package:cargo/Features/Main/main_screen.dart';
 import 'package:cargo/Features/auth/otp_screen.dart';
+import 'package:cargo/Features/notifications/notification_service.dart';
 // ignore_for_file: unused_import
 
 enum LoginMethod { email, phone }
@@ -139,6 +140,7 @@ class LoginController extends ChangeNotifier {
       }
 
       await PreferencesManager().setBool('isLoggedIn', true);
+      await NotificationService().saveTokenForCurrentUser();
       if (context.mounted) {
         Navigator.pushReplacement(
           context,
@@ -227,6 +229,7 @@ class LoginController extends ChangeNotifier {
   Future<void> _afterPhoneLogin(BuildContext context, User? user) async {
     if (user != null) {
       await PreferencesManager().setBool('isLoggedIn', true);
+      await NotificationService().saveTokenForCurrentUser();
       if (context.mounted) {
         Navigator.pushReplacement(
           context,

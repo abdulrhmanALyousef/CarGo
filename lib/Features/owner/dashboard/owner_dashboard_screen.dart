@@ -9,6 +9,7 @@ import 'package:cargo/Features/owner/owner_models.dart';
 import 'package:cargo/Features/owner/wallet/wallet_screen.dart';
 import 'package:cargo/Features/owner/analytics/analytics_screen.dart';
 import 'package:cargo/Features/mycars/my_cars_screen.dart';
+import 'package:cargo/Features/notifications/notifications_screen.dart';
 import 'package:cargo/core/theme/light_color.dart';
 import 'package:cargo/models/wallet_model.dart';
 
@@ -202,8 +203,13 @@ class _NotificationButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Stack(
-      children: [
+    return GestureDetector(
+      onTap: () => Navigator.push(
+        context,
+        MaterialPageRoute(builder: (_) => const NotificationsScreen()),
+      ),
+      child: Stack(
+        children: [
         Container(
           width: 44,
           height: 44,
@@ -248,6 +254,7 @@ class _NotificationButton extends StatelessWidget {
             ),
           ),
       ],
+      ),
     );
   }
 }

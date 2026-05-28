@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:provider/provider.dart';
 import 'Features/splash/splash_screen.dart';
+import 'Features/notifications/notification_service.dart';
 import 'core/theme/light_theme.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_app_check/firebase_app_check.dart';
@@ -22,6 +23,9 @@ void main() async {
   StripeService.init();
   await ScreenUtil.ensureScreenSize();
   await PreferencesManager().init();
+
+  // Initialise FCM and local notification infrastructure.
+  await NotificationService().initialize();
 
   runApp(const MyApp());
 }
@@ -44,6 +48,9 @@ class MyApp extends StatelessWidget {
             title: 'Car Go',
             debugShowCheckedModeBanner: false,
             theme: lightTheme,
+            // Global navigator key lets NotificationService push screens
+            // from notification taps regardless of where the user is in the app.
+            navigatorKey: NotificationService.navigatorKey,
             home: const SplashScreen(),
           );
         },

@@ -907,3 +907,259 @@ export const getPlaceDetails = onCall(
     };
   }
 );
+
+// ── Notification helpers ──────────────────────────────────────────────────────
+
+/** Fetches the car's display name (brand + model) from Firestore. */
+async function getCarName(carId: string): Promise<string> {
+  try {
+    const snap = await db.collection('cars').doc(carId).get();
+    const d = snap.data();
+    if (!d) return 'your car';
+    return `${d.brand ?? ''} ${d.model ?? ''}`.trim() || 'your car';
+  } catch {
+    return 'your car';
+  }
+}
+
+/**
+ * Persists a notification document to Firestore and sends an FCM push to the
+ * user's registered device token (if available).
+ *
+ * Fails silently — a missing token or FCM error must NOT abort the caller.
+ */
+async function sendNotification(
+  userId: string,
+  title: string,
+  body: string,
+  type: string,
+  navigationTarget: string,
+  metadata: Record<string, string> = {}
+): Promise<void> {
+  try {
+    // 1. Write to Firestore so the in-app notification centre sees it.
+    const notifRef = db.collection('notifications').doc();
+    await notifRef.set({
+      notificationId: notifRef.id,
+      userId,
+      title,
+      body,
+      type,
+      isRead: false,
+      createdAt: admin.firestore.FieldValue.serverTimestamp(),
+      navigationTarget,
+      metadata,
+    });
+
+    // 2. Look up the user's FCM token.
+    const userSnap = await db.collection('users').doc(userId).get();
+    const fcmToken = userSnap.data()?.fcmToken as string | undefined;
+    if (!fcmToken) return; // user hasn't granted permission or isn't logged in
+
+    // 3. Send the push notification.
+    const message: admin.messaging.Message = {
+      token: fcmToken,
+      notification: { title, body },
+      data: {
+        type,
+        navigationTarget,
+        notificationId: notifRef.id,
+        ...metadata,
+      },
+      android: {
+        priority: 'high',
+        notification: {
+          channelId: 'cargo_high_importance',
+          sound: 'default',
+          color: '#004B09',
+        },
+      },
+      apns: {
+        payload: {
+          aps: { sound: 'default', badge: 1 },
+        },
+      },
+    };
+
+    await admin.messaging().send(message);
+    console.log(`[sendNotification] Sent "${title}" to user ${userId}`);
+  } catch (err) {
+    console.error('[sendNotification] error (non-fatal):', err);
+  }
+}
+
+// ── onBookingNotificationTrigger ──────────────────────────────────────────────
+//
+// Firestore trigger: fires on every booking write.
+// Sends push notifications and saves in-app notification docs for all
+// important booking lifecycle transitions.
+
+export const onBookingNotificationTrigger = onDocumentWritten(
+  'bookings/{bookingId}',
+  async (event) => {
+    const before = event.data?.before?.data();
+    const after  = event.data?.after?.data();
+    if (!after) return; // document deleted — nothing to do
+
+    const prevStatus = (before?.status ?? '') as string;
+    const newStatus  = (after.status  ?? '') as string;
+    if (prevStatus === newStatus) return; // no status change
+
+    const ownerId:   string = after.ownerId  ?? '';
+    const renterId:  string = after.userId   ?? '';
+    const carId:     string = after.carId    ?? '';
+    const bookingId: string = event.params.bookingId;
+
+    if (!ownerId || !renterId) {
+      console.warn('[onBookingNotificationTrigger] missing ownerId/renterId for', bookingId);
+      return;
+    }
+
+    const carName = await getCarName(carId);
+    const meta = { bookingId };
+
+    try {
+      switch (newStatus) {
+
+        // ── New booking request (pending) — notify owner ──────────────────
+        case 'pending':
+          await sendNotification(
+            ownerId,
+            'New Booking Request',
+            `New booking request for ${carName}.`,
+            'booking_request',
+            'booking_requests',
+            meta,
+          );
+          break;
+
+        // ── Owner approved — notify renter to pay ─────────────────────────
+        case 'approved':
+          await sendNotification(
+            renterId,
+            'Booking Approved!',
+            `Your booking for ${carName} has been approved. Complete payment to confirm.`,
+            'booking_approved',
+            'my_trips',
+            meta,
+          );
+          break;
+
+        // ── Renter paid — booking confirmed — notify owner ────────────────
+        case 'confirmed':
+          await sendNotification(
+            ownerId,
+            'Payment Received',
+            `Payment confirmed for ${carName}. Trip is locked in.`,
+            'booking_approved',
+            'booking_requests',
+            meta,
+          );
+          break;
+
+        // ── Cancelled/rejected — notify renter if owner rejected ──────────
+        case 'cancelled':
+          if (prevStatus === 'pending' || prevStatus === 'approved') {
+            await sendNotification(
+              renterId,
+              'Booking Not Accepted',
+              `Your booking request for ${carName} was not accepted.`,
+              'booking_rejected',
+              'my_trips',
+              meta,
+            );
+          }
+          break;
+
+        // ── Employee confirmed pickup — trip started ───────────────────────
+        case 'in_trip':
+          await Promise.all([
+            sendNotification(
+              renterId,
+              'Trip Started!',
+              `Your trip in ${carName} has started. Enjoy the ride!`,
+              'pickup_confirmed',
+              'my_trips',
+              meta,
+            ),
+            sendNotification(
+              ownerId,
+              'Car Picked Up',
+              `Your ${carName} is now out on a trip.`,
+              'pickup_confirmed',
+              'booking_requests',
+              meta,
+            ),
+          ]);
+          break;
+
+        // ── Trip completed — notify both ──────────────────────────────────
+        case 'completed':
+          await Promise.all([
+            sendNotification(
+              renterId,
+              'Trip Completed!',
+              `Your trip in ${carName} is complete. Thank you for choosing CarGo!`,
+              'return_confirmed',
+              'my_trips',
+              meta,
+            ),
+            sendNotification(
+              ownerId,
+              'Trip Completed',
+              `Your ${carName} trip has ended. Earnings added to your wallet.`,
+              'wallet_payout',
+              'booking_requests',
+              meta,
+            ),
+          ]);
+          break;
+
+        default:
+          break;
+      }
+    } catch (err) {
+      console.error('[onBookingNotificationTrigger] error:', err);
+    }
+  }
+);
+
+// ── sendTripReminder (HTTPS callable) ─────────────────────────────────────────
+//
+// Called by a cron job or scheduling service to send reminders before a trip.
+// Input: { bookingId: string }
+// Sends:
+//   • 24-hour reminder to renter
+//   •  2-hour reminder to renter
+
+export const sendTripReminder = onCall(async (request) => {
+  const bookingId: string = (request.data.bookingId ?? '').trim();
+  if (!bookingId) {
+    throw new HttpsError('invalid-argument', 'bookingId is required.');
+  }
+
+  const snap = await db.collection('bookings').doc(bookingId).get();
+  if (!snap.exists) {
+    throw new HttpsError('not-found', 'Booking not found.');
+  }
+
+  const data = snap.data()!;
+  const renterId: string  = data.userId  ?? '';
+  const carId:    string  = data.carId   ?? '';
+  const pickupTime: string = data.pickupTime ?? '';
+
+  if (!renterId) throw new HttpsError('invalid-argument', 'Missing renterId.');
+
+  const carName = await getCarName(carId);
+
+  await sendNotification(
+    renterId,
+    'Trip Reminder',
+    `Your trip in ${carName} starts soon${pickupTime ? ' at ' + pickupTime : ''}. Please arrive at CarGo Hub on time.`,
+    'trip_reminder',
+    'my_trips',
+    { bookingId },
+  );
+
+  return { success: true };
+});

@@ -9,6 +9,9 @@ import 'package:cargo/Features/chats/presentation/chats_screen.dart';
 import 'package:cargo/Features/owner/dashboard/owner_dashboard_screen.dart';
 import 'package:cargo/Features/mycars/my_cars_screen.dart';
 import 'package:cargo/Features/owner/booking_requests_screen.dart';
+import 'package:cargo/Features/trips/my_trips_screen.dart';
+import 'package:cargo/Features/notifications/notification_service.dart';
+import 'package:cargo/Features/notifications/notifications_screen.dart';
 import 'package:cargo/core/theme/light_color.dart';
 
 class MainScreen extends StatefulWidget {
@@ -22,10 +25,50 @@ class _MainScreenState extends State<MainScreen> {
   int _currentIndex = 0;
   bool? _isOwner;
 
+  // Owner tab indices
+  static const _ownerBookingsTab = 2;
+
   @override
   void initState() {
     super.initState();
     _detectRole();
+    NotificationService.pendingNavigation.addListener(_handlePendingNavigation);
+  }
+
+  @override
+  void dispose() {
+    NotificationService.pendingNavigation
+        .removeListener(_handlePendingNavigation);
+    super.dispose();
+  }
+
+  void _handlePendingNavigation() {
+    final target = NotificationService.pendingNavigation.value;
+    if (target == null || target.isEmpty) return;
+    NotificationService.pendingNavigation.value = null;
+    if (!mounted) return;
+
+    switch (target) {
+      case 'booking_requests':
+        if (_isOwner == true) {
+          setState(() => _currentIndex = _ownerBookingsTab);
+        } else {
+          Navigator.push(context,
+              MaterialPageRoute(builder: (_) => const BookingRequestsScreen()));
+        }
+        break;
+      case 'my_trips':
+        Navigator.push(context,
+            MaterialPageRoute(builder: (_) => const MyTripsScreen()));
+        break;
+      case 'notifications':
+        Navigator.push(context,
+            MaterialPageRoute(builder: (_) => const NotificationsScreen()));
+        break;
+      default:
+        Navigator.push(context,
+            MaterialPageRoute(builder: (_) => const NotificationsScreen()));
+    }
   }
 
   Future<void> _detectRole() async {
@@ -139,8 +182,7 @@ class _MainScreenState extends State<MainScreen> {
     }
 
     final screens = _isOwner! ? _ownerScreens : _renterScreens;
-    final items =
-        _isOwner! ? _ownerItems : _renterItems;
+    final items = _isOwner! ? _ownerItems : _renterItems;
 
     return Scaffold(
       body: IndexedStack(

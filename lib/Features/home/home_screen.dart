@@ -6,6 +6,7 @@ import 'package:cargo/core/widgets/app_button.dart';
 import 'package:cargo/core/theme/light_color.dart';
 import 'package:cargo/Features/home/controllers/home_controller.dart';
 import 'package:cargo/Features/home/widgets/car_card.dart';
+import 'package:cargo/Features/notifications/notification_bell_button.dart';
 
 class HomeScreen extends StatelessWidget {
   const HomeScreen({super.key});
@@ -32,11 +33,11 @@ class HomeScreen extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       // ── Header ─────────────────────────────────────────────
-                      const Row(
+                      Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Column(
+                          const Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               Text(
@@ -55,7 +56,13 @@ class HomeScreen extends StatelessWidget {
                               ),
                             ],
                           ),
-                          ProfileMenuButton(),
+                          Row(
+                            children: const [
+                              NotificationBellButton(),
+                              SizedBox(width: 4),
+                              ProfileMenuButton(),
+                            ],
+                          ),
                         ],
                       ),
 
