@@ -1,7 +1,8 @@
 import 'dart:async';
-import 'package:cloud_functions/cloud_functions.dart';
 import 'package:flutter/material.dart';
 import 'package:cargo/core/dataSource/remote_data/firebase_service.dart';
+import 'package:cargo/core/errors/error_handler.dart';
+import 'package:cargo/core/errors/app_messenger.dart';
 import 'package:cargo/Features/auth/reset_password_screen.dart';
 
 class ForgotPasswordOtpController extends ChangeNotifier {
@@ -78,15 +79,10 @@ class ForgotPasswordOtpController extends ChangeNotifier {
       await FirebaseService().sendOtp(email);
       _startTimer();
       if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('New code sent! Check your email.'),
-            backgroundColor: Colors.green,
-          ),
-        );
+        AppMessenger.showSuccess(context, 'New code sent! Check your email.');
       }
     } catch (e) {
-      if (context.mounted) _showError(context, _extractError(e));
+      if (context.mounted) AppMessenger.showError(context, ErrorHandler.handle(e).userMessage);
     } finally {
       _isLoading = false;
       notifyListeners();
@@ -111,24 +107,11 @@ class ForgotPasswordOtpController extends ChangeNotifier {
         );
       }
     } catch (e) {
-      if (context.mounted) _showError(context, _extractError(e));
+      if (context.mounted) AppMessenger.showError(context, ErrorHandler.handle(e).userMessage);
     } finally {
       _isLoading = false;
       notifyListeners();
     }
-  }
-
-  // ─── Helpers ──────────────────────────────────────────────────────────────
-  String _extractError(Object e) {
-    if (e is FirebaseFunctionsException) return e.message ?? e.code;
-    return e.toString();
-  }
-
-  void _showError(BuildContext context, String msg) {
-    if (!context.mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(msg), backgroundColor: Colors.red),
-    );
   }
 
   @override

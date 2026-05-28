@@ -1,10 +1,12 @@
-// ignore_for_file: avoid_print, use_build_context_synchronously
+// ignore_for_file: use_build_context_synchronously
 
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:cargo/models/booking_model.dart';
 import 'package:cargo/Features/owner/owner_models.dart';
+import 'package:cargo/core/errors/error_handler.dart';
+import 'package:cargo/core/errors/app_messenger.dart';
 import 'package:cargo/Features/chats/presentation/chat_screen.dart';
 
 class BookingRequestsController extends ChangeNotifier {
@@ -123,8 +125,7 @@ class BookingRequestsController extends ChangeNotifier {
       _pending = pendingList;
       _approved = approvedList;
     } catch (e) {
-      print('[BookingRequestsController] fetch error: $e');
-      _error = e.toString();
+      _error = ErrorHandler.handle(e, tag: 'BookingRequestsController.fetch').userMessage;
     } finally {
       _isLoading = false;
       notifyListeners();
@@ -144,8 +145,7 @@ class BookingRequestsController extends ChangeNotifier {
         detail.booking.bookingId,
       );
       if (overlap) {
-        _showError(context,
-            'Another renter is already accepted for these dates.');
+        AppMessenger.showError(context, 'Another renter is already accepted for these dates.');
         return;
       }
 
@@ -167,17 +167,9 @@ class BookingRequestsController extends ChangeNotifier {
       _approved.insert(0, updated);
       notifyListeners();
 
-      if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-                'Accepted! ${detail.renterName} will be notified to pay.'),
-            backgroundColor: Colors.green,
-          ),
-        );
-      }
-    } on FirebaseException catch (e) {
-      _showError(context, e.message ?? e.code);
+      AppMessenger.showSuccess(context, 'Accepted! ${detail.renterName} will be notified to pay.');
+    } catch (e) {
+      AppMessenger.showError(context, ErrorHandler.handle(e, tag: 'accept').userMessage);
     } finally {
       _actionId = null;
       notifyListeners();
@@ -199,15 +191,9 @@ class BookingRequestsController extends ChangeNotifier {
           (d) => d.booking.bookingId == detail.booking.bookingId);
       notifyListeners();
 
-      if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-              content:
-                  Text('Rejected request from ${detail.renterName}.')),
-        );
-      }
-    } on FirebaseException catch (e) {
-      _showError(context, e.message ?? e.code);
+      AppMessenger.showInfo(context, 'Rejected request from ${detail.renterName}.');
+    } catch (e) {
+      AppMessenger.showError(context, ErrorHandler.handle(e, tag: 'reject').userMessage);
     } finally {
       _actionId = null;
       notifyListeners();
@@ -266,13 +252,4 @@ class BookingRequestsController extends ChangeNotifier {
     return result;
   }
 
-  void _showError(BuildContext ctx, String msg) {
-    if (ctx.mounted) {
-      ScaffoldMessenger.of(ctx).showSnackBar(
-        SnackBar(
-            content: Text(msg),
-            backgroundColor: Colors.red.shade700),
-      );
-    }
-  }
 }

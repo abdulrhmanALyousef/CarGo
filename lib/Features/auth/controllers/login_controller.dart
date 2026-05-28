@@ -2,6 +2,8 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:cargo/core/dataSource/remote_data/firebase_service.dart';
 import 'package:cargo/core/dataSource/local_data/preferences_manager.dart';
+import 'package:cargo/core/errors/error_handler.dart';
+import 'package:cargo/core/errors/app_messenger.dart';
 import 'package:cargo/Features/Main/main_screen.dart';
 import 'package:cargo/Features/auth/otp_screen.dart';
 import 'package:cargo/Features/notifications/notification_service.dart';
@@ -135,7 +137,7 @@ class LoginController extends ChangeNotifier {
       );
 
       if (user == null) {
-        if (context.mounted) _showError(context, 'Login failed');
+        if (context.mounted) AppMessenger.showError(context, 'Unable to sign in. Please try again.');
         return;
       }
 
@@ -148,7 +150,7 @@ class LoginController extends ChangeNotifier {
         );
       }
     } catch (e) {
-      if (context.mounted) _showError(context, 'Login failed: ${e.toString()}');
+      if (context.mounted) AppMessenger.showError(context, ErrorHandler.handle(e).userMessage);
     } finally {
       _isLoading = false;
       notifyListeners();
@@ -169,7 +171,7 @@ class LoginController extends ChangeNotifier {
           if (context.mounted) await _afterPhoneLogin(context, userCredential.user);
         },
         onFailed: (e) {
-          _showError(context, e.message ?? 'Phone verification failed');
+          AppMessenger.showError(context, ErrorHandler.handle(e).userMessage);
         },
         onCodeSent: (verificationId, _) {
           _verificationId = verificationId;
@@ -193,7 +195,7 @@ class LoginController extends ChangeNotifier {
         },
       );
     } catch (e) {
-      if (context.mounted) _showError(context, 'Failed to send code: ${e.toString()}');
+      if (context.mounted) AppMessenger.showError(context, ErrorHandler.handle(e).userMessage);
     } finally {
       _isLoading = false;
       notifyListeners();
@@ -206,7 +208,7 @@ class LoginController extends ChangeNotifier {
 
     final code = otpController.text.trim();
     if (_verificationId == null) {
-      _showError(context, 'Please request a code first');
+      AppMessenger.showError(context, 'Please request a verification code first.');
       _isLoading = false;
       notifyListeners();
       return;
@@ -219,7 +221,7 @@ class LoginController extends ChangeNotifier {
       );
       if (context.mounted) await _afterPhoneLogin(context, cred.user);
     } catch (e) {
-      if (context.mounted) _showError(context, 'Invalid code: ${e.toString()}');
+      if (context.mounted) AppMessenger.showError(context, ErrorHandler.handle(e).userMessage);
     } finally {
       _isLoading = false;
       notifyListeners();
@@ -237,18 +239,7 @@ class LoginController extends ChangeNotifier {
         );
       }
     } else {
-      _showError(context, 'Login failed');
-    }
-  }
-
-  void _showError(BuildContext context, String msg) {
-    if (context.mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(msg),
-          backgroundColor: Colors.red,
-        ),
-      );
+      AppMessenger.showError(context, 'Unable to sign in. Please try again.');
     }
   }
 }

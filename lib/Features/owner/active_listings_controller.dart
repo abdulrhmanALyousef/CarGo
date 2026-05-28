@@ -1,9 +1,11 @@
-// ignore_for_file: avoid_print, use_build_context_synchronously
+// ignore_for_file: use_build_context_synchronously
 
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:cargo/models/car_model.dart';
+import 'package:cargo/core/errors/error_handler.dart';
+import 'package:cargo/core/errors/app_messenger.dart';
 
 class ActiveListingsController extends ChangeNotifier {
   final _db = FirebaseFirestore.instance;
@@ -62,8 +64,7 @@ class ActiveListingsController extends ChangeNotifier {
         _activeBookingCount[car.id] = bSnap.docs.length;
       }
     } catch (e) {
-      print('[ActiveListingsController] fetch error: $e');
-      _error = e.toString();
+      _error = ErrorHandler.handle(e, tag: 'ActiveListingsController').userMessage;
     } finally {
       _isLoading = false;
       notifyListeners();
@@ -81,29 +82,13 @@ class ActiveListingsController extends ChangeNotifier {
       });
       _listings.removeWhere((c) => c.id == car.id);
       notifyListeners();
-      if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Listing paused — hidden from renters.'),
-          ),
-        );
-      }
-    } on FirebaseException catch (e) {
-      _showError(context, e.message ?? e.code);
+      AppMessenger.showInfo(context, 'Listing paused — hidden from renters.');
+    } catch (e) {
+      AppMessenger.showError(context, ErrorHandler.handle(e, tag: 'pauseListing').userMessage);
     } finally {
       _actionCarId = null;
       notifyListeners();
     }
   }
 
-  void _showError(BuildContext ctx, String msg) {
-    if (ctx.mounted) {
-      ScaffoldMessenger.of(ctx).showSnackBar(
-        SnackBar(
-          content: Text(msg),
-          backgroundColor: Colors.red.shade700,
-        ),
-      );
-    }
-  }
 }

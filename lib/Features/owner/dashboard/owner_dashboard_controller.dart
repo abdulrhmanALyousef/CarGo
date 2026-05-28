@@ -1,5 +1,3 @@
-// ignore_for_file: avoid_print
-
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -8,6 +6,7 @@ import 'package:cargo/models/wallet_model.dart';
 import 'package:cargo/models/booking_model.dart';
 import 'package:cargo/Features/owner/owner_models.dart';
 import 'package:cargo/core/dataSource/remote_data/firebase_service.dart';
+import 'package:cargo/core/errors/error_handler.dart';
 
 class MonthlyRevenue {
   final String month;
@@ -53,7 +52,7 @@ class OwnerDashboardController extends ChangeNotifier {
         _wallet = w;
         notifyListeners();
       },
-      onError: (e) => print('[Dashboard] wallet stream error: $e'),
+      onError: (e) => ErrorHandler.handle(e, tag: 'Dashboard.walletStream'),
     );
 
     await _loadAll(ownerId);
@@ -81,8 +80,7 @@ class OwnerDashboardController extends ChangeNotifier {
         _loadMonthlyRevenue(ownerId),
       ]);
     } catch (e) {
-      print('[Dashboard] _loadAll error: $e');
-      _error = e.toString();
+      _error = ErrorHandler.handle(e, tag: 'Dashboard._loadAll').userMessage;
     }
   }
 
@@ -218,8 +216,7 @@ class OwnerDashboardController extends ChangeNotifier {
                 amount: totals[m.month] ?? 0,
               ))
           .toList();
-    } catch (e) {
-      print('[Dashboard] revenue aggregation error: $e');
+    } catch (_) {
       _monthlyRevenue = months;
     }
   }

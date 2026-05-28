@@ -4,6 +4,8 @@ import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import '../../../core/dataSource/local_data/preferences_manager.dart';
 import '../../../core/dataSource/remote_data/firebase_service.dart';
+import '../../../core/errors/error_handler.dart';
+import '../../../core/errors/app_messenger.dart';
 import '../../auth/login_screen.dart';
 
 class ProfileController extends ChangeNotifier {
@@ -100,16 +102,9 @@ class ProfileController extends ChangeNotifier {
         'licenseUrl': url,
         'licenseVerificationStatus': 'pending',
       };
-      if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('License uploaded. Pending verification.'),
-            backgroundColor: Colors.green,
-          ),
-        );
-      }
+      AppMessenger.showSuccess(context, 'License uploaded. Pending verification.');
     } catch (e) {
-      if (context.mounted) _showError(context, 'Upload failed: $e');
+      if (context.mounted) AppMessenger.showError(context, ErrorHandler.handle(e, tag: 'uploadLicense').userMessage);
     } finally {
       _isSaving = false;
       notifyListeners();
@@ -151,17 +146,10 @@ class ProfileController extends ChangeNotifier {
       };
       _pendingProfileImage = null;
 
-      if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Profile updated successfully'),
-            backgroundColor: Colors.green,
-          ),
-        );
-      }
+      AppMessenger.showSuccess(context, 'Profile updated successfully.');
       return true;
     } catch (e) {
-      if (context.mounted) _showError(context, 'Update failed: $e');
+      if (context.mounted) AppMessenger.showError(context, ErrorHandler.handle(e, tag: 'saveProfile').userMessage);
       return false;
     } finally {
       _isSaving = false;
@@ -181,7 +169,7 @@ class ProfileController extends ChangeNotifier {
         );
       }
     } catch (e) {
-      if (context.mounted) _showError(context, 'Logout failed: $e');
+      if (context.mounted) AppMessenger.showError(context, ErrorHandler.handle(e, tag: 'logout').userMessage);
     }
   }
 
@@ -225,24 +213,9 @@ class ProfileController extends ChangeNotifier {
     } catch (e) {
       _isLoading = false;
       notifyListeners();
-      if (e.toString().contains('requires-recent-login')) {
-        if (context.mounted) {
-          _showError(
-            context,
-            'Please log out and log back in before deleting your account.',
-          );
-        }
-      } else {
-        if (context.mounted) _showError(context, 'Delete failed: $e');
+      if (context.mounted) {
+        AppMessenger.showError(context, ErrorHandler.handle(e, tag: 'deleteAccount').userMessage);
       }
-    }
-  }
-
-  void _showError(BuildContext context, String msg) {
-    if (context.mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(msg), backgroundColor: Colors.red),
-      );
     }
   }
 }
