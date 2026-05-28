@@ -1,5 +1,7 @@
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:cargo/core/controllers/favorites_notifier.dart';
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import 'package:shimmer/shimmer.dart';
 import 'package:cargo/models/car_model.dart';
 import 'package:cargo/Features/details/car_details_screen.dart';
@@ -15,6 +17,11 @@ class CarCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isFav = showFavoriteButton
+        ? context.select<FavoritesNotifier, bool>(
+            (n) => n.isFavorited(model.id))
+        : false;
+
     return GestureDetector(
       onTap: () => Navigator.push(
         context,
@@ -71,17 +78,24 @@ class CarCard extends StatelessWidget {
                 Positioned(
                   top: 10,
                   right: 12,
-                  child: Container(
-                    width: 34,
-                    height: 34,
-                    decoration: BoxDecoration(
-                      color: Colors.black.withValues(alpha: 0.35),
-                      shape: BoxShape.circle,
-                    ),
-                    child: const Icon(
-                      Icons.favorite_outline,
-                      size: 18,
-                      color: Colors.white,
+                  child: GestureDetector(
+                    behavior: HitTestBehavior.opaque,
+                    onTap: () =>
+                        context.read<FavoritesNotifier>().toggle(model.id),
+                    child: Container(
+                      width: 34,
+                      height: 34,
+                      decoration: BoxDecoration(
+                        color: Colors.black.withValues(alpha: 0.35),
+                        shape: BoxShape.circle,
+                      ),
+                      child: Icon(
+                        isFav
+                            ? Icons.favorite_rounded
+                            : Icons.favorite_outline,
+                        size: 18,
+                        color: isFav ? Colors.red[300] : Colors.white,
+                      ),
                     ),
                   ),
                 ),
