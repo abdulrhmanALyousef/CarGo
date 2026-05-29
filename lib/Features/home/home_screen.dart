@@ -1,12 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:cargo/core/widgets/search_widget.dart';
 import 'package:cargo/core/widgets/profile_menu_button.dart';
 import 'package:cargo/core/widgets/app_button.dart';
 import 'package:cargo/core/theme/light_color.dart';
 import 'package:cargo/Features/home/controllers/home_controller.dart';
 import 'package:cargo/Features/home/widgets/car_card.dart';
 import 'package:cargo/Features/notifications/notification_bell_button.dart';
+import 'package:cargo/Features/ai_chat/widgets/chatbot_preview_card.dart';
 
 class HomeScreen extends StatelessWidget {
   const HomeScreen({super.key});
@@ -68,8 +68,8 @@ class HomeScreen extends StatelessWidget {
 
                       const SizedBox(height: 20),
 
-                      // ── Search Widget ──────────────────────────────────────
-                      const SearchWidget(),
+                      // ── AI Chatbot Preview ────────────────────────────────────
+                      const ChatbotPreviewCard(),
 
                       const SizedBox(height: 24),
 
