@@ -148,15 +148,33 @@ class _ChatTile extends StatelessWidget {
                     overflow: TextOverflow.ellipsis,
                   ),
                   const SizedBox(height: 3),
-                  Text(
-                    item.lastMessage.isEmpty ? 'No messages yet' : item.lastMessage,
-                    style: TextStyle(
-                      fontSize: 13,
-                      color: LightColors.textColor.withValues(alpha:0.5),
-                    ),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
+                  item.lastMessageType == 'location'
+                      ? Row(
+                          children: [
+                            Icon(
+                              Icons.location_on,
+                              size: 14,
+                              color: LightColors.textColor.withValues(alpha: 0.5),
+                            ),
+                            const SizedBox(width: 4),
+                            Text(
+                              'Location',
+                              style: TextStyle(
+                                fontSize: 13,
+                                color: LightColors.textColor.withValues(alpha: 0.5),
+                              ),
+                            ),
+                          ],
+                        )
+                      : Text(
+                          item.lastMessage.isEmpty ? 'No messages yet' : item.lastMessage,
+                          style: TextStyle(
+                            fontSize: 13,
+                            color: LightColors.textColor.withValues(alpha: 0.5),
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
                 ],
               ),
             ),

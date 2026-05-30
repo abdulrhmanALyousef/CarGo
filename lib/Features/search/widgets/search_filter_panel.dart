@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 import 'package:cargo/Features/search/controller/search_controller.dart';
 import 'package:cargo/core/theme/light_color.dart';
@@ -120,6 +121,17 @@ class SearchFilterPanel extends StatelessWidget {
                 values: ctrl.fuelOptions,
                 selected: ctrl.selectedFuel,
                 onSelected: (val) => ctrl.selectFuel(val),
+              ),
+
+              const SizedBox(height: 20),
+
+              // ── Date Range ─────────────────────────────────────────
+              _SectionTitle('Availability Dates'),
+              const SizedBox(height: 10),
+              _DateRangePicker(
+                dateRange: ctrl.dateRange,
+                onPick: (range) => ctrl.selectDateRange(range),
+                onClear: () => ctrl.selectDateRange(null),
               ),
 
               const SizedBox(height: 16),
@@ -300,6 +312,103 @@ class _ChipRow extends StatelessWidget {
           ),
         );
       }),
+    );
+  }
+}
+
+// ── Date range picker ───────────────────────────────────────────────────────
+
+class _DateRangePicker extends StatelessWidget {
+  final DateTimeRange? dateRange;
+  final ValueChanged<DateTimeRange> onPick;
+  final VoidCallback onClear;
+
+  const _DateRangePicker({
+    required this.dateRange,
+    required this.onPick,
+    required this.onClear,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final fmt = DateFormat('dd MMM yyyy');
+    final hasRange = dateRange != null;
+
+    return GestureDetector(
+      onTap: () async {
+        final now = DateTime.now();
+        final picked = await showDateRangePicker(
+          context: context,
+          firstDate: now,
+          lastDate: now.add(const Duration(days: 365)),
+          initialDateRange: dateRange,
+          builder: (context, child) {
+            return Theme(
+              data: Theme.of(context).copyWith(
+                colorScheme: ColorScheme.light(
+                  primary: LightColors.primaryColor,
+                  onPrimary: Colors.white,
+                  surface: Colors.white,
+                  onSurface: LightColors.textColor,
+                ),
+              ),
+              child: child!,
+            );
+          },
+        );
+        if (picked != null) {
+          onPick(picked);
+        }
+      },
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+        decoration: BoxDecoration(
+          color: hasRange
+              ? LightColors.primaryColor.withValues(alpha: 0.08)
+              : const Color(0xFFF5F5F5),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(
+            color: hasRange
+                ? LightColors.primaryColor
+                : Colors.grey.shade300,
+          ),
+        ),
+        child: Row(
+          children: [
+            Icon(
+              Icons.calendar_today_rounded,
+              size: 18,
+              color: hasRange
+                  ? LightColors.primaryColor
+                  : Colors.grey.shade500,
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Text(
+                hasRange
+                    ? '${fmt.format(dateRange!.start)} – ${fmt.format(dateRange!.end)}'
+                    : 'Select dates',
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: hasRange ? FontWeight.w600 : FontWeight.w400,
+                  color: hasRange
+                      ? LightColors.primaryColor
+                      : Colors.grey.shade600,
+                ),
+              ),
+            ),
+            if (hasRange)
+              GestureDetector(
+                onTap: onClear,
+                child: const Icon(
+                  Icons.close,
+                  size: 18,
+                  color: LightColors.primaryColor,
+                ),
+              ),
+          ],
+        ),
+      ),
     );
   }
 }

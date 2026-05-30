@@ -36,6 +36,10 @@ class SearchCarController extends ChangeNotifier {
   String? _selectedFuel;
   String? get selectedFuel => _selectedFuel;
 
+  // ── Date Range Filter ──────────────────────────────────────────────
+  DateTimeRange? _dateRange;
+  DateTimeRange? get dateRange => _dateRange;
+
   // ── Results ──────────────────────────────────────────────────────────
   List<Car> _allCars = [];
   List<Car> _filteredCars = [];
@@ -154,6 +158,12 @@ class SearchCarController extends ChangeNotifier {
     notifyListeners();
   }
 
+  void selectDateRange(DateTimeRange? range) {
+    _dateRange = range;
+    _applyFilters();
+    notifyListeners();
+  }
+
   // ── Firestore fetch ──────────────────────────────────────────────────
   Future<void> fetchCars() async {
     _isLoading = true;
@@ -222,6 +232,16 @@ class SearchCarController extends ChangeNotifier {
         }
       }
 
+      // Date range filter — car must be available during the selected dates
+      if (_dateRange != null) {
+        if (car.availableFrom == null || car.availableTo == null) return false;
+        // Car's window must fully contain the requested range
+        if (car.availableFrom!.isAfter(_dateRange!.start) ||
+            car.availableTo!.isBefore(_dateRange!.end)) {
+          return false;
+        }
+      }
+
       // Fuel type filter
       if (_selectedFuel != null) {
         final fuel = _selectedFuel!.toLowerCase();
@@ -250,6 +270,7 @@ class SearchCarController extends ChangeNotifier {
     _selectedSeats = null;
     _selectedTransmission = null;
     _selectedFuel = null;
+    _dateRange = null;
     searchTextController.clear();
     _searchQuery = '';
     _applyFilters();

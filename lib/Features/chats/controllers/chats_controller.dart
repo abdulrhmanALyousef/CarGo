@@ -10,6 +10,7 @@ class ChatListItem {
   final String otherUserId;
   final String otherUserName;
   final String lastMessage;
+  final String lastMessageType;
   final DateTime? lastTimestamp;
 
   const ChatListItem({
@@ -17,6 +18,7 @@ class ChatListItem {
     required this.otherUserId,
     required this.otherUserName,
     required this.lastMessage,
+    required this.lastMessageType,
     required this.lastTimestamp,
   });
 }
@@ -98,6 +100,7 @@ class ChatsController extends ChangeNotifier {
         otherUserId: otherId,
         otherUserName: otherName,
         lastMessage: data['lastMessage'] as String? ?? '',
+        lastMessageType: data['lastMessageType'] as String? ?? 'text',
         lastTimestamp: lastTime,
       ));
     }

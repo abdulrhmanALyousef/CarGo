@@ -49,5 +49,9 @@
 	<array>
 		<string>tel</string>
 	</array>
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>We need your location to share it in chats</string>
+	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
+	<string>We need your location to share it in chats</string>
 </dict>
 </plist>

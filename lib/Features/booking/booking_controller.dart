@@ -35,7 +35,8 @@ class BookingController extends ChangeNotifier {
 
   BookingController({required this.car}) {
     final today = _dateOnly(DateTime.now());
-    _focusedDay = today;
+    final lastDay = calendarLastDay;
+    _focusedDay = today.isAfter(lastDay) ? lastDay : today;
     loadAvailability();
   }
 
